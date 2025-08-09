@@ -1,0 +1,49 @@
+﻿@inherits LayoutComponentBase
+
+<PageTitle>مزرعتي</PageTitle>
+
+<div class="page">
+   
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <nav class="navbar navbar-expand-lg ">
+            <div class="container">
+              
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav mb-2 mb-lg-0">
+                        <li class="nav-item ms-2">
+                            <a class="nav-link active" aria-current="page" href="#">الرئيسية</a>
+                        </li>
+                        <li class="nav-item ms-2">
+                            <a class="nav-link " href="#">من نحن</a>
+                        </li>
+                       
+                        <li class="nav-item ms-2">
+                            <a class="nav-link " href="#" tabindex="-1" aria-disabled="true">الاسعار</a>
+                        </li>
+                        <li class="nav-item ms-2">
+                            <a class="nav-link " href="#" tabindex="-1" aria-disabled="true">تواصل معنا</a>
+                        </li>
+                    </ul>
+                 <div class="position-relative start-50">
+                     <LoginDisplay/>
+                 </div>
+                </div>
+                </div>
+            
+        </nav>
+       
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+   
+</div>

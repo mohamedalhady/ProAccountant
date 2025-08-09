@@ -1,0 +1,153 @@
+﻿@page "/add-income"
+@page "/add-income/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject Income income
+@inject NavigationManager nav
+@inject DialogService dialogService
+<PageTitle>اضافة ايراد</PageTitle>
+<EditForm Model="income" FormName="add-income" class="form-control p-5 m-2 ">
+  
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var income in Errors)
+                {
+                    <li>@income.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="مجموعة الايراد" Component="farmname" Style="width: 100%; max-width: 150px;" />
+        <RadzenDropDown @ref="groupname" @bind-Value=income.IncomeGroupId Data=@IncomeGroups ValueProperty="@nameof(IncomeGroup.IncomeGroupId)" TextProperty="@nameof(IncomeGroup.IncomeGroupName)" Style="width: 100%; max-width: 400px;" Name="farmname"  />
+        <RadzenButton Icon="add" Click="addincomegroup"></RadzenButton>
+    </RadzenRow>
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم الايراد" Component="incomename" Style="width: 100%; max-width: 150px;" />
+        <RadzenTextBox @bind-Value=income.IncomeName  Style="width: 100%; max-width: 400px;" Name="incomename" />
+
+
+    </RadzenRow>
+   
+    <RadzenRow>
+
+        <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="NewIncome" />
+        <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="InsertIncome" />
+
+    </RadzenRow>
+
+
+</EditForm>
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenButton newbtn;
+    RadzenButton addbtn;
+    public IEnumerable<IncomeGroup> IncomeGroups { get; set; }
+    RadzenDropDown<int> groupname;
+
+    public bool IsValid { get; set; }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await  service.GetUserId();
+       await updateincomegroup();
+        if (Id > 0)
+        {
+            income = unitofwork.Incomes.GetById(Id);
+        }
+    }
+
+    void NewIncome()
+    {
+        income = new();
+        Id = 0;
+
+    }
+    void InsertIncome()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Incomes.UpdateOne(income);
+            }
+            else
+            {
+                income.UserId = UserId;
+                unitofwork.Incomes.AddOne(income);
+                addbtn.Text = "تعديل";
+                Id = income.IncomeId;
+            }
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+
+        }
+
+
+    }
+    bool validation()
+    {
+        Errors.Clear();
+        if (income.IncomeGroupId == 0)
+        {
+            Errors.Add("incomegroup", "يجب ادخال مجموعة الايراد");
+        }
+        if (string.IsNullOrEmpty(income.IncomeName))
+        {
+            Errors.Add("incomename", "يجب ادخال اسم الايراد");
+
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+    async void addincomegroup()
+    {
+        Errors.Clear();
+        var result = await dialogService.OpenAsync<AddIncomeGroup>("اضافة مجموعة ايراد", null, new DialogOptions() { Draggable = true, Resizable = false });
+        if (result != null)
+        {
+          await  updateincomegroup();
+            StateHasChanged();
+        }
+    }
+    async Task updateincomegroup()
+    {
+        IncomeGroups =await unitofwork.IncomeGroups.GetAllAsync(i => i.UserId == UserId);
+        StateHasChanged();
+    }
+}

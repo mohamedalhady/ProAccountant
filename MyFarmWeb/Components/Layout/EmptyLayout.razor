@@ -1,0 +1,277 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@inject MyFarmWeb.Repository.LayoutState layoutState
+<RadzenComponents @rendermode="InteractiveServer" />
+@using MyFarmWeb.Components.Pages
+@using MyFarmWeb.Components.Pages.MyComponents
+
+
+<style>
+   
+
+    .header-bar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        flex-shrink: 0; /* منع تقليص الـ header */
+        min-height: 80px; /* ارتفاع ثابت للـ header */
+       /*  overflow: hidden; /* منع التمرير في الـ header */ */
+    }
+
+    .header-title {
+        font-size: 24px;
+        font-weight: 600;
+        white-space: nowrap; /* منع كسر النص */
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+  
+
+
+    .breadcrumb-nav {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        border-right: 4px solid #007bff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        flex-shrink: 0; /* منع تقليص الـ breadcrumb */
+        min-width: fit-content; /* عرض مناسب للمحتوى */
+    }
+
+   
+
+    /* تخصيص شريط التمرير العمودي */
+    .content-wrapper::-webkit-scrollbar:vertical {
+        width: 8px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-track:vertical {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-thumb:vertical {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+        .content-wrapper::-webkit-scrollbar-thumb:vertical:hover {
+            background: #a8a8a8;
+        }
+
+    /* تخصيص شريط التمرير الأفقي */
+    .content-wrapper::-webkit-scrollbar:horizontal {
+        height: 8px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-track:horizontal {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-thumb:horizontal {
+        background: #667eea;
+        border-radius: 4px;
+    }
+
+        .content-wrapper::-webkit-scrollbar-thumb:horizontal:hover {
+            background: #5a6fd8;
+        }
+
+    /* تخصيص زاوية التقاء شريطي التمرير */
+    .content-wrapper::-webkit-scrollbar-corner {
+        background: #f1f1f1;
+    }
+
+    /* دعم Firefox */
+    .content-wrapper {
+        scrollbar-width: thin;
+        scrollbar-color: #c1c1c1 #f1f1f1;
+    }
+
+    /* استجابة للشاشات الصغيرة */
+    @@media (max-width: 768px) {
+        body
+
+    {
+        padding-right: 0;
+    }
+
+    .content-wrapper {
+        height: calc(100vh - 70px); /* ارتفاع أقل للشاشات الصغيرة */
+        padding: 15px;
+    }
+
+    .header-bar {
+        min-height: 70px;
+        padding: 15px 20px;
+    }
+
+    .header-title {
+        font-size: 18px;
+    }
+
+    .sidebar-fixed {
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    }
+
+        .sidebar-fixed.show {
+            transform: translateX(0);
+        }
+
+    .mobile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+        display: none;
+    }
+
+        .mobile-overlay.show {
+            display: block;
+        }
+
+    }
+
+    /* تحسينات إضافية للأداء */
+    .main-content {
+        will-change: scroll-position;
+    }
+
+    .content-wrapper {
+        will-change: scroll-position;
+        scroll-behavior: smooth;
+    }
+
+    /* تحسين التمرير للجداول الكبيرة */
+    .page-content table {
+        min-width: 100%;
+        white-space: nowrap;
+    }
+
+    .page-content .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* تحسين عرض المحتوى العريض */
+    .wide-content {
+        min-width: 1200px; /* عرض أدنى للمحتوى العريض */
+    }
+
+    .extra-wide-content {
+        min-width: 1600px; /* عرض أدنى للمحتوى الأعرض */
+    }
+
+    /* مؤشر التمرير الأفقي */
+    .scroll-indicator {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(102, 126, 234, 0.9);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+    }
+
+        .scroll-indicator.show {
+            opacity: 1;
+        }
+
+    /* تحسين الأداء للمحتوى الكبير */
+    .content-wrapper {
+        contain: layout style paint;
+    }
+</style>
+<LoadMenuItems />
+<!-- Mobile Overlay -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <!-- Header -->
+   @*  <div class="header-bar">
+        <div style="display: flex; align-items: center; gap: 15px; min-width: 0; flex: 1;">
+            <button class="btn btn-link text-white d-md-none" onclick="toggleSidebar()" style="border: none; background: none; font-size: 20px; flex-shrink: 0;">
+                <i class="material-icons">menu</i>
+            </button>
+            <div class="header-title">نظام إدارة الموارد المؤسسية</div>
+        </div>
+        <div class="user-info">
+            <RadzenIcon Icon="account_circle" Style="font-size: 24px;" />
+            <span>مرحباً، أحمد محمد</span>
+            <RadzenIcon Icon="keyboard_arrow_down" Style="font-size: 18px;" />
+        </div>
+    </div> *@
+
+    <!-- Content Wrapper - هنا سيظهر التمرير العمودي والأفقي -->
+    <div class="content-wrapper" id="contentWrapper">
+        <!-- Breadcrumb -->
+        <!-- Page Content -->
+
+        <div class="page-content">
+
+            <MyFarmWeb.Components.Pages.MyComponents.BreadCrumb menuItems="layoutState._MenuItems" />
+
+            @Body
+        </div>
+
+
+    </div>
+</div>
+
+<!-- مؤشر التمرير -->
+<div class="scroll-indicator" id="scrollIndicator">
+    التمرير الأفقي متاح
+</div>
+
+<!-- Radzen Dialog, Notification, Tooltip and ContextMenu component -->
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />
+<RadzenContextMenu />
+
+
+@code {
+   
+    void navigateToHome()
+    {
+        NavigationManager.NavigateTo("dashboard");
+    }
+    override protected void OnInitialized()
+    {
+
+        layoutState.OnChange += HandleLayoutStateChange;
+
+
+
+    }
+    public void Dispose()
+    {
+        layoutState.OnChange -= HandleLayoutStateChange;
+    }
+
+    private void HandleLayoutStateChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+}

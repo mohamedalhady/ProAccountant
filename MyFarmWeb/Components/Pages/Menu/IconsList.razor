@@ -1,0 +1,186 @@
+﻿@page "/icons-reference"
+@rendermode InteractiveServer
+@inject Radzen.DialogService dialogService
+@inject IJSRuntime JSRuntime
+@inject NotificationService NotificationService
+<h1>قائمة الأيقونات المتاحة</h1>
+
+<div class="search-box">
+    <RadzenTextBox Placeholder="ابحث عن أيقونة..." @bind-Value="@searchTerm" Change="@FilterIcons" />
+</div>
+
+<div class="icons-grid">
+    @foreach (var icon in filteredIcons)
+    {
+        <div class="icon-item" @onclick ="() => CopyIconName(icon)">
+            <RadzenIcon Icon="@icon"  />
+            <div class="icon-name">@icon</div>
+        </div>
+    }
+</div>
+
+@code {
+    private string searchTerm = "";
+    private List<string> allIcons = new List<string>();
+    private List<string> filteredIcons = new List<string>();
+
+    protected override void OnInitialized()
+    {
+        // قائمة بأسماء الأيقونات الشائعة
+        allIcons = new List<string>
+        {
+            "home", "dashboard", "settings", "person", "people", "account_circle",
+            "shopping_cart", "add_shopping_cart", "inventory", "category",
+            "receipt", "receipt_long", "description", "assignment", "assignment_turned_in",
+            "account_balance", "account_balance_wallet", "credit_card", "payment",
+            "analytics", "bar_chart", "pie_chart", "trending_up", "assessment",
+            "work", "business", "business_center", "store", "storefront",
+            "folder", "folder_open", "cloud", "cloud_upload", "cloud_download",
+            "email", "send", "chat", "message", "forum",
+            "calendar_today", "event", "schedule", "today", "date_range",
+            "notifications", "notifications_active", "warning", "error", "info",
+            "help", "help_outline", "search", "visibility", "visibility_off",
+            "lock", "lock_open", "security", "verified_user", "gavel",
+            "print", "save", "delete", "edit", "add", "remove",
+            "check", "close", "arrow_back", "arrow_forward", "menu",
+            "more_vert", "more_horiz", "refresh", "sync", "history",
+            "star", "star_border", "favorite", "thumb_up", "thumb_down",
+            "attach_file", "link", "photo", "image", "videocam",
+            "phone", "call", "location_on", "place", "room",
+            "access_time", "watch_later", "alarm", "timer", "hourglass_empty",
+            "language", "translate", "public", "flag", "local_offer",
+            "local_shipping", "local_grocery_store", "local_activity", "local_atm", "local_dining",
+            "directions_car", "directions_bus", "flight", "hotel", "restaurant",
+            "wifi", "bluetooth", "signal_cellular_4_bar", "battery_full", "power",
+            "keyboard", "keyboard_arrow_down", "keyboard_arrow_up", "keyboard_arrow_left", "keyboard_arrow_right",
+            "expand_more", "expand_less", "chevron_left", "chevron_right", "arrow_drop_down",
+            "arrow_drop_up", "swap_vert", "swap_horiz", "sort", "filter_list"
+
+        };
+
+        filteredIcons = new List<string>(allIcons);
+    }
+
+    private void FilterIcons()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredIcons = new List<string>(allIcons);
+        }
+        else
+        {
+            filteredIcons = allIcons
+                .Where(icon => icon.Contains(searchTerm.ToLower()))
+                .ToList();
+        }
+    }
+
+    private async Task CopyIconName(string iconName)
+    {
+        try
+        {
+            var result = await JSRuntime.InvokeAsync<bool>("blazorClipboard.copyText", iconName);
+
+            if (result)
+            {
+                NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "تم النسخ",
+                    Detail = $"تم نسخ اسم الأيقونة: {iconName}",
+                    Duration = 3000
+                });
+               
+                dialogService.Close(iconName);
+            }
+            else
+            {
+                NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "خطأ",
+                    Detail = "فشل في نسخ اسم الأيقونة",
+                    Duration = 3000
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"خطأ: {ex.Message}");
+        }
+    }
+  }
+
+
+
+<style>
+    .search-box {
+        margin-bottom: 20px;
+    }
+
+    .icons-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+    }
+
+    .icon-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 15px;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .icon-item:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+    .icon-name {
+        margin-top: 8px;
+        font-size: 12px;
+        text-align: center;
+        color: #666;
+    }
+</style>
+
+ <script>
+               
+    window.blazorClipboard = {
+        copyText: async function(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } else {
+                 
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    const result = document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    return result;
+                }
+            } catch (error) {
+                console.error('خطأ في النسخ:', error);
+                return false;
+            }
+        },
+
+        copyIconName: async function(iconName) {
+            const success = await this.copyText(iconName);
+            return {
+                success: success,
+                iconName: iconName,
+                message: success ? `تم نسخ: ${iconName}` : 'فشل في النسخ'
+            };
+        }
+    };
+</script>

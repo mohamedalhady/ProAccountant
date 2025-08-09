@@ -1,0 +1,35 @@
+
+
+services:
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest 
+    container_name: mssql_2022
+    ports:
+      - "1433:1433" 
+    environment:
+      SA_PASSWORD: "0185354849" 
+      ACCEPT_EULA: "Y" 
+      MSSQL_PID: "Developer" 
+    volumes:
+      - sqlserver_data:/var/opt/mssql 
+    restart: unless-stopped 
+
+  
+  blazorapp:
+    build:
+      context: . 
+      dockerfile: MyFarmWeb/Dockerfile 
+    container_name: blazor_app_container
+    ports:
+      - "8080:80" 
+    depends_on:
+      - sqlserver 
+    environment:
+     
+    
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=YourDatabaseName;User Id=sa;Password=YourStrongPassword!123;TrustServerCertificate=True;"
+      ASPNETCORE_URLS: "http://+:80"
+
+volumes:
+  sqlserver_data: 

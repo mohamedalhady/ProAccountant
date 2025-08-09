@@ -1,0 +1,32 @@
+﻿@page "/counter"
+@rendermode InteractiveServer
+@inject DialogService ds ;
+@inject IUnitOfWork unitofwork
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<RadzenButton class="btn btn-primary" Click="IncrementCount">اضغط هنا</RadzenButton>
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.5rem" class="rz-p-sm-12">
+    <RadzenLabel Text="Select Value" Component="DropDownFiltering" />
+    <RadzenDropDown  FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterOperator="StringFilterOperator.StartsWith" AllowFiltering="true"
+                    Data=@Governorates TextProperty="@nameof(Governorate.GovernorateName)" ValueProperty="@nameof(Governorate.GovernorateId)" AllowClear="true" @bind-Value=value Style="width: 100%; max-width: 400px;" Name="DropDownFiltering" />
+</RadzenStack>
+
+@code {
+    private int currentCount = 0;
+    private IEnumerable<Governorate> Governorates { get; set; }
+    RadzenDropDown<string> radzenDropDown;
+    int value = 1;
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        Governorates = await unitofwork.Governorates.GetAllAsync();
+    }
+    private void IncrementCount()
+    {
+        ds.Alert("nkfnhjdhfjd");
+    }
+}

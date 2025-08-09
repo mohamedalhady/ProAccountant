@@ -1,0 +1,145 @@
+﻿@page "/bank-transactions-report-selector"
+@rendermode InteractiveServer
+@layout Layout.MainLayout
+@inject IUnitOfWork unitofwork
+@inject Service service
+@inject MyFarmWeb.Data.MyFarmContext db
+@inject NavigationManager nv
+<PageTitle> تقرير حركة البنوك</PageTitle>
+<RadzenCard class="rz-my-6">
+    <RadzenStack Gap="20px">
+
+        <RadzenRow>
+            <RadzenLabel Component="paymentid">رقم المستند</RadzenLabel>
+            <RadzenNumeric TValue="int" Min="0" @bind-Value="PaymentId" Style="margin-right:20px;" TextAlign="Radzen.TextAlign.Center" Name="paymentid"></RadzenNumeric>
+
+        </RadzenRow>
+
+        <RadzenRow>
+
+
+            <RadzenLabel Component="from">من تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=from Style="margin-right:40px;" Name="from" />
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="to">الى تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=to Style="margin-right:40px;" Name="to" />
+
+        </RadzenRow>
+
+        <RadzenRow>
+            <RadzenLabel Component="DropDownDatabank">البنك</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridbank FocusFilterOnPopup="true" ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=SafsId Data=@Banks AllowFilteringByAllStringColumns="true"
+                                        TextProperty="@nameof(Bank.BankName)" ValueProperty="@nameof(Bank.BankId)" AllowFiltering="true" Name="DropDownDatabank">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select all" } })" Disabled="@(!gridbank.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => SafsId = args ? gridbank.View.Cast<Bank>().Select(c => c.BankId) : SafsId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select item" } })" TriState="false" Value="@(SafsId != null && SafsId.Contains(((Bank)data).BankId))"
+                                                TValue="bool" Change=@(args => gridbank.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Bank.BankId)" Title="كود البنك" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Bank.BankName)" Title="اسم البنك" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+
+
+    </RadzenStack>
+    <RadzenButton Text="تنفيذ" Icon="save" Click="search" Style="margin-right:100px;margin-top:20px;"></RadzenButton>
+    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مقبوض" Click="@addreceipt" />
+    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مدفوع" Click="@addpayment" />
+</RadzenCard>
+
+
+
+@code {
+    public int PaymentId { get; set; }
+
+
+    RadzenDropDownDataGrid<IEnumerable<int>> gridbank;
+
+    public int CustomerId { get; set; }
+
+
+    IEnumerable<Bank> Banks;
+
+
+
+    IEnumerable<int> SafsId = new int[] { };
+
+
+
+    public string bankidstring { get; set; } = "";
+
+    public DateTime from { get; set; }
+    public DateTime to { get; set; }
+    public string UserId { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!await service.IsAuth())
+        {
+            nv.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Banks = await unitofwork.Bank.GetAllAsync(i => i.UserId == UserId);
+
+    }
+    void search()
+
+    {
+
+
+
+        if (SafsId != null && SafsId.Any())
+        {
+            foreach (var item in SafsId)
+            {
+                if (string.IsNullOrEmpty(bankidstring))
+                {
+                    bankidstring = item.ToString();
+
+                }
+                else
+                {
+                    bankidstring = bankidstring + "," + item.ToString();
+                }
+
+            }
+        }
+
+
+        // Default each parameter to "null" if it's empty or null
+        bankidstring = string.IsNullOrEmpty(bankidstring) ? "null" : bankidstring;
+        var fromDate = from.ToString("yyyy-MM-dd") ?? "null";
+        var toDate = to.ToString("yyyy-MM-dd") ?? "null";
+
+        // Navigate to the constructed URL
+        string url = $"bank-transaction-report/{bankidstring}/{fromDate}/{toDate}/{PaymentId}";
+        nv.NavigateTo(url);
+    }
+
+
+    void addreceipt()
+    {
+        nv.NavigateTo("/add-receipt-bank");
+    }
+    void addpayment()
+    {
+        nv.NavigateTo("/add-payment-bank");
+    }
+}
+

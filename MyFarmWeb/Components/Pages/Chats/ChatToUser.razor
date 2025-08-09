@@ -1,0 +1,94 @@
+﻿@page "/chatoneuser"
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+<div class="container overflow-auto shadow-sm p-3 m-5 bg-white rounded " style="height:500px;">
+    @if (!messages.Any())
+    {
+        <p>No Messages Yet , Start Chating </p>
+    }
+    @foreach (var message in messages)
+    {
+        <div class="row mb-3  d-flex @(message.CurrentUser ? "justify-content-end me-5":"ms-5")">
+            <div class="card shadow @(message.CurrentUser ? "color-green":"")" style="width:18rem;">
+                <div class="card-header">
+                    @(message.CurrentUser ? "You" : message.UserName)
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item @(message.CurrentUser ? "color-green":"")">@message.Message</li>
+                </ul>
+                <div class="card-footer">
+                    <span class="small">@message.DateSent.ToString("HH:mm | MMM dd")</span>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+<div class="container">
+    <div class="row">
+        <div class="col-3">
+            <input @bind=userInput type="text" class="form-control" placeholder="Your Name" readonly="@isUserReadonly" />
+
+        </div>
+        <div class="col-6">
+            <textarea @bind="messageInput" class="form-control" placeholder="Start Typing...."></textarea>
+        </div>
+        <div class="col-3">
+            <button type="button" @onclick=Send disabled=@(!IsConnected) class="btn btn-primary">Send</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private HubConnection hubConnection;
+    private List<UserMessage> messages = new();
+    private string? userInput;
+    private string? messageInput;
+    private bool isUserReadonly = false;
+    public bool IsConnected => hubConnection.State == HubConnectionState.Connected;
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
+            .Build();
+
+        hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
+        {
+
+            messages.Add(new UserMessage()
+                {
+                    UserName = user,
+                    Message = message,
+                    CurrentUser = user == userInput,
+                    DateSent = DateTime.Now
+
+                });
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private async Task Send()
+    {
+        if (!string.IsNullOrEmpty(userInput) && !string.IsNullOrEmpty(messageInput))
+        {
+            await hubConnection.SendAsync("SendNotificationToOneUser", userInput, messageInput, "2ad03790-21e7-4738-b951-a94bca1593fe");
+            isUserReadonly = true;
+            messageInput = string.Empty;
+
+        }
+    }
+
+
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
+

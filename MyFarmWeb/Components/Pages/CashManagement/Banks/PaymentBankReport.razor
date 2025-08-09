@@ -1,0 +1,360 @@
+﻿@page "/payment-bank-report/{CustomersId}/{VendorsId}/{BanksId}/{FarmsId}/{from:datetime}/{to:datetime}/{PaymentId:int}"
+@using System.Text.Json
+@using MyFarmWeb.Components.Pages.DataGridSettingsFolder
+@using MyFarmWeb.Repository.special.Class
+@using Radzen.Blazor.Rendering
+@layout Layout.EmptyLayout
+@inject SetDataGridSetting dgsetting
+@inject IUnitOfWork unitofwork
+@inject IJSRuntime JSRuntime
+@inject NavigationManager nav
+@rendermode InteractiveServer
+@inject Service service
+@using Microsoft.JSInterop
+@inject DialogService DialogService
+@inject IJSRuntime JSRuntime
+<PageTitle>تقرير المدفوعات البنكية</PageTitle>
+@try
+{ @if (IsLoading)
+    {
+        <RadzenStack AlignItems="AlignItems.Center" class="rz-m-12" Gap="2rem">
+            <RadzenProgressBarCircular Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+        </RadzenStack>
+    }
+    <RadzenCard>
+
+        <RadzenStack Orientation="Orientation.Horizontal" Style="width:50%;margin-right:40px;">
+            <RadzenLabel Component="DropDownfrozen">اختيار الاعمده </RadzenLabel>
+            <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridColumns ShowSearch="false" SearchTextPlaceholder="بحث"
+                                    @bind-Value=ColumnsFrozen Data=@dataGridColumnsFrozens AllowClear="true"
+                                    TextProperty="@nameof(DataGridColumnsFrozen.ColumnTitle)" ValueProperty="@nameof(DataGridColumnsFrozen.ColumnKey)" AllowFiltering="true" Name="DropDownfrozen">
+                <Columns>
+                    <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                        <HeaderTemplate>
+                            <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "اختيار الكل" } })" Disabled="@(!gridColumns.AllowSelectAll)" TriState="false" TValue="bool"
+                                            Change="@(args => ColumnsFrozen = args ? gridColumns.View.Cast<DataGridColumnsFrozen>().Select(c => c.ColumnKey) : ColumnsFrozen = Enumerable.Empty<string>())" />
+                        </HeaderTemplate>
+                        <Template Context="data">
+                            <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "اختار عمود" } })" TriState="false" Value="@(ColumnsFrozen != null && ColumnsFrozen.Contains(((DataGridColumnsFrozen)data).ColumnKey))"
+                                            TValue="bool" Change=@(args => gridColumns.SelectItem(data)) @onclick:stopPropagation />
+                        </Template>
+                    </RadzenDropDownDataGridColumn>
+
+
+                    <RadzenDropDownDataGridColumn Property="@nameof(DataGridColumnsFrozen.ColumnTitle)" Title="اسم العمود" />
+
+                </Columns>
+            </RadzenDropDownDataGrid>
+            <RadzenButton ButtonStyle="ButtonStyle.Danger" Text="تجميد" Click="@FrozenColumn" />
+        </RadzenStack>
+
+
+    </RadzenCard>
+    <RadzenDataGrid class="mb-5" @bind-Settings=_settings @ref=invoicegrid AllowFiltering="true" AllowAlternatingRows="true" AllowColumnResize="true" FilterMode="FilterMode.SimpleWithMenu" AllowSorting="true"
+                    Data="@Payments" AllowGrouping="true" AllowPaging="false" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true" GroupFootersAlwaysVisible="true" TItem="PaymentBankDetails"
+                    ColumnWidth="50px" Style="height:600px;cursor:pointer;" GroupPanelText="اسحب هنا للتجميع" AllGroupsExpanded="IsExpand" LogicalFilterOperator="LogicalFilterOperator.And" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selecteditem
+                    ApplyFilterText="تصفية" RowSelect="Edit" EmptyText="لايوجد بيانات " ShowMultiColumnSortingIndex="true" AllowMultiColumnSorting="true" ColumnReordered="FrozenColumn" ClearFilterText="الغاء" AllowColumnReorder="true" AllowColumnPicking="true" ColumnsShowingText="اظهار الاعمدة" GridLines="DataGridGridLines.Both">
+
+        <HeaderTemplate>
+            <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مدفوع" Click="@add" />
+            <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="expand" Text="توسيع" Click="@expand" />
+            <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="switch_left" Text="تجميع" Click="@collapse" />
+            <RadzenButton Icon="add" Click="OpenLayouts" Text="المخطط"></RadzenButton>
+
+        </HeaderTemplate>
+        <Columns>
+
+            <RadzenDataGridColumn Property="@nameof(PaymentBankDetails.PaymentBankHeader.Date)" Title="التاريخ" Width="160px" OrderIndex="2">
+                <Template Context="data">
+                    @data.PaymentBankHeader?.Date.ToString("yyyy-MM-dd")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(PaymentBankDetails.PaymentBankId)" Title="رقم المدفوع" Width="160px" OrderIndex="3">
+
+                <FooterTemplate>
+                    <b>@invoicegrid.View.Select(i => i.PaymentBankId).Distinct().Count()</b>
+                </FooterTemplate>
+                <GroupFooterTemplate Context="data">
+                    <b>@data.Data.Count</b>
+                </GroupFooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="PaymentBankHeader.Farm.Farm.FarmName" Title="اسم المزرعة" Width="160px" OrderIndex="4" />
+            <RadzenDataGridColumn Property="@nameof(PaymentBankDetails.CustomerId)" Title="كود العميل" Width="160px" OrderIndex="4" />
+            <RadzenDataGridColumn Property="Customer.CustomerName" Title="اسم العميل" Width="160px" OrderIndex="5" />
+            <RadzenDataGridColumn Property="@nameof(PaymentBankDetails.Moslsel)" Title="رقم البند" Width="160px" OrderIndex="6">
+                <FooterTemplate>
+                    <b>@invoicegrid.View.Count()</b>
+                </FooterTemplate>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(PaymentBankDetails.VendorId)" Title="كود المورد" Width="160px" OrderIndex="7" />
+            <RadzenDataGridColumn Property="Vendor.VendorName" Title="اسم المورد" Width="160px" OrderIndex="7" />
+
+            <RadzenDataGridColumn Property="PaymentBankHeader.Bank.BankName" Title="البنك" Width="160px" OrderIndex="8" />
+
+            <RadzenDataGridColumn Property="@nameof(PaymentBankDetails.Amount)" Title="القيمة" Width="160px" OrderIndex="12">
+                <Template Context="data">
+                    @data.Amount.ToString("N3")
+                </Template>
+                <FooterTemplate>
+
+                    <b>@invoicegrid.View.Sum(i => i.Amount).ToString("N3")</b>
+                </FooterTemplate>
+                <GroupFooterTemplate>
+                    <b>@(context.Data.Items.Cast<PaymentBankDetails>().Sum(i => i.Amount).ToString("N3"))</b>
+                </GroupFooterTemplate>
+            </RadzenDataGridColumn>
+
+            <RadzenDataGridColumn Property="@nameof(PaymentBankDetails.Notes)" Title="الملاحظات" Width="160px" OrderIndex="15" />
+
+
+
+        </Columns>
+
+    </RadzenDataGrid>
+
+}
+catch (Exception ex)
+{
+    Console.WriteLine(ex.Message);
+}
+@code {
+    IEnumerable<string> ColumnsFrozen = new string[] { };
+    RadzenDropDownDataGrid<IEnumerable<string>> gridColumns;
+    bool isfrozen;
+    List<DataGridColumnsFrozen> dataGridColumnsFrozens = new();
+    RadzenButton btnpopup;
+    Popup popup;
+    public string GridId { get; set; } = "payment-bank-report";
+    // حفظ اعدادات الجريد
+    DataGridSettings _settings;
+    public DataGridSettings Settings
+    {
+        get
+        {
+            return _settings;
+        }
+        set
+        {
+            if (_settings != value)
+            {
+                _settings = value;
+
+            }
+        }
+    }
+
+    //---------------------
+    LoadDataArgs LoadDataArgs = new();
+    [Parameter]
+    public string CustomersId { get; set; }
+    [Parameter]
+    public int PaymentId { get; set; }
+
+    [Parameter]
+    public string VendorsId { get; set; }
+
+    [Parameter]
+    public string BanksId { get; set; }
+    [Parameter]
+    public string FarmsId { get; set; }
+
+    [Parameter]
+    public DateTime from { get; set; }
+
+    [Parameter]
+    public DateTime to { get; set; }
+
+    private int[] CustomersIdArray { get; set; }
+
+    private int[] VendorsIdArray { get; set; }
+
+    private int[] BanksIdArray { get; set; }
+    private int[] FarmsIdArray { get; set; }
+
+
+    public bool IsLoading { get; set; } = true;
+    DataGridSettings dataGridSettings;
+    public IList<PaymentBankDetails> selecteditem { get; set; }
+    public IEnumerable<PaymentBankDetails> Payments { get; set; }
+    public bool IsExpand { get; set; } = true;
+    RadzenDataGrid<PaymentBankDetails> invoicegrid;
+    public string UserId { get; set; }
+
+    public DataGridSetting LayoutDefault { get; set; }
+    public int LayoutIdSelection { get; set; }
+
+    public async void OpenLayouts()
+    {
+        var setting = JsonSerializer.Serialize<DataGridSettings>(_settings);
+        var columnsfrozensetting = JsonSerializer.Serialize<IEnumerable<string>>(ColumnsFrozen);
+        var result = await DialogService.OpenAsync<DataGridLayouts>("",
+                new Dictionary<string, object>() { { "UserId", UserId }, { "GridId", GridId }, { "Setting", setting }, { "Id", LayoutIdSelection }, { "IsExpand", IsExpand }, { "ColumnFrozenSetting", columnsfrozensetting } },
+               new DialogOptions()
+               {
+                   Resizable = false,
+                   Draggable = true,
+
+                   Width = "900px",
+                   Height = "600px"
+               });
+
+        if (result != null)
+        {
+            ColumnsFrozen = Enumerable.Empty<string>();
+            _settings = JsonSerializer.Deserialize<DataGridSettings>(result.Setting);
+            LayoutIdSelection = result.Id;
+            IsExpand = result.IsExpand;
+            if (result.ColumnsFrozen != null)
+            {
+                ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(result.ColumnsFrozen);
+
+
+            }
+            FrozenColumn();
+            StateHasChanged();
+
+
+        }
+
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+
+        if (firstRender)
+        {
+            await runtaskfillcolumnfrozen();
+
+            await gridColumns.Reload();
+            if (LayoutDefault is not null)
+            {
+                _settings = JsonSerializer.Deserialize<DataGridSettings>(LayoutDefault.Setting);
+                ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(LayoutDefault.ColumnsFrozen);
+                FrozenColumn();
+                LayoutIdSelection = LayoutDefault.Id;
+                IsExpand = LayoutDefault.IsExpand;
+
+            }
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        Dictionary<string, int[]> args = new();
+        // await  base.OnInitializedAsync();
+        //Payments = unitofwork.SalesPaymentDetails.GetDocumentDataForReport(UserId);
+        if (CustomersId != null && CustomersId != "null")
+        {
+            CustomersIdArray = CustomersId?.Split(',').Select(int.Parse).ToArray();
+            args.Add("Customers", CustomersIdArray);
+        }
+        if (VendorsId != null && VendorsId != "null")
+        {
+            VendorsIdArray = VendorsId?.Split(',').Select(int.Parse).ToArray();
+            args.Add("Vendors", VendorsIdArray);
+        }
+        if (BanksId != null && BanksId != "null")
+        {
+            BanksIdArray = BanksId?.Split(',').Select(int.Parse).ToArray();
+            args.Add("Banks", BanksIdArray);
+        }
+        if (FarmsId != null && FarmsId != "null")
+        {
+            FarmsIdArray = FarmsId?.Split(',').Select(int.Parse).ToArray();
+            args.Add("Farms", FarmsIdArray);
+        }
+        UserId = await service.GetUserId();
+
+
+        Payments = unitofwork.PaymentBankDetails.FilterDocumentData(UserId, from, to, PaymentId, args).ToList();
+
+        LayoutDefault = dgsetting.GetLayoutDefault(UserId, GridId);
+
+
+    }
+
+    Task<int> runtaskfillcolumnfrozen()
+    {
+        var i = Task.Run(FillColumnsToFrozen);
+
+        return i;
+    }
+
+    int FillColumnsToFrozen()
+    {
+        dataGridColumnsFrozens.Clear();
+        for (int i = 0; i < invoicegrid.ColumnsCollection.Count - 1; i++)
+        {
+            dataGridColumnsFrozens.Add(new()
+            {
+
+                ColumnKey = invoicegrid.ColumnsCollection[i].Property,
+                ColumnTitle = invoicegrid.ColumnsCollection[i].Title,
+
+
+            });
+        }
+
+        return 0;
+
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-payment-bank");
+
+
+    }
+
+    void FrozenColumn()
+    {
+
+
+        foreach (var item in invoicegrid.ColumnsCollection)
+        {
+            item.Frozen = false;
+        }
+
+        if (ColumnsFrozen != null)
+        {
+
+            for (int i = 0; i < ColumnsFrozen.Count(); i++)
+            {
+                invoicegrid.ColumnsCollection.FirstOrDefault(s => s.Property == ColumnsFrozen.ToArray()[i].ToString()).Frozen = true;
+
+
+            }
+        }
+
+
+
+    }
+    void Edit(PaymentBankDetails invoice)
+    {
+
+        nav.NavigateTo($"add-payment-bank/{invoice.PaymentBankId}");
+
+
+    }
+    void expand()
+    {
+        IsExpand = true;
+    }
+    void collapse()
+    {
+        IsExpand = false;
+    }
+
+
+}

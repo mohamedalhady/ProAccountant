@@ -1,0 +1,413 @@
+﻿@page "/safe-transaction-report/{SafesId}/{from:datetime}/{to:datetime}/{DocumentId:int}"
+@using System.Text.Json
+@using MyFarmWeb.Components.Pages.DataGridSettingsFolder
+@using MyFarmWeb.Repository.special.Class
+@using Radzen.Blazor.Rendering
+@layout Layout.EmptyLayout
+@inject SetDataGridSetting dgsetting
+@inject IUnitOfWork unitofwork
+@inject IJSRuntime JSRuntime
+@inject NavigationManager nav
+@rendermode InteractiveServer
+@inject Service service
+@using Microsoft.JSInterop
+@inject DialogService DialogService
+@inject IJSRuntime JSRuntime
+@inject ContextMenuService ContextMenuService
+@inject LayoutState layoutState
+<PageTitle>تقرير حركة الخزنه</PageTitle>
+@try
+{
+    @if (IsLoading)
+    {
+        <RadzenStack AlignItems="AlignItems.Center" class="rz-m-12" Gap="2rem">
+            <RadzenProgressBarCircular Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+        </RadzenStack>
+    }
+
+        <RadzenCard>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Style="width:50%;margin-right:40px;">
+                <RadzenLabel Component="DropDownfrozen">اختيار الاعمده </RadzenLabel>
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridColumns ShowSearch="false" SearchTextPlaceholder="بحث"
+                                        @bind-Value=ColumnsFrozen Data=@dataGridColumnsFrozens AllowClear="true"
+                                        TextProperty="@nameof(DataGridColumnsFrozen.ColumnTitle)" ValueProperty="@nameof(DataGridColumnsFrozen.ColumnKey)" AllowFiltering="true" Name="DropDownfrozen">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "اختيار الكل" } })" Disabled="@(!gridColumns.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => ColumnsFrozen = args ? gridColumns.View.Cast<DataGridColumnsFrozen>().Select(c => c.ColumnKey) : ColumnsFrozen = Enumerable.Empty<string>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "اختار عمود" } })" TriState="false" Value="@(ColumnsFrozen != null && ColumnsFrozen.Contains(((DataGridColumnsFrozen)data).ColumnKey))"
+                                                TValue="bool" Change=@(args => gridColumns.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+
+
+                        <RadzenDropDownDataGridColumn Property="@nameof(DataGridColumnsFrozen.ColumnTitle)" Title="اسم العمود" />
+
+                    </Columns>
+                </RadzenDropDownDataGrid>
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Text="تجميد" Click="@FrozenColumn" />
+            </RadzenStack>
+
+
+        </RadzenCard>
+        <RadzenDataGrid class="mb-5" @bind-Settings=_settings @ref=invoicegrid AllowFiltering="true" AllowAlternatingRows="true" AllowColumnResize="true" FilterMode="FilterMode.SimpleWithMenu" AllowSorting="true"
+                        Data="@Transactions" AllowGrouping="true" AllowPaging="false" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true" GroupFootersAlwaysVisible="true" TItem="SafeTransaction"
+                        ColumnWidth="50px" Style="height:600px;cursor:pointer;" GroupPanelText="اسحب هنا للتجميع" AllGroupsExpanded="IsExpand" LogicalFilterOperator="LogicalFilterOperator.And" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selecteditem
+                        ApplyFilterText="تصفية" RowSelect="Edit" EmptyText="لايوجد بيانات " ShowMultiColumnSortingIndex="true" AllowMultiColumnSorting="true" ColumnReordered="FrozenColumn" ClearFilterText="الغاء" AllowColumnReorder="true" AllowColumnPicking="true" ColumnsShowingText="اظهار الاعمدة" GridLines="DataGridGridLines.Both">
+
+            <HeaderTemplate>
+                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مدفوع" Click="@addpayment" />
+                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مقبوض" Click="@addreceipt" />
+                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="expand" Text="توسيع" Click="@expand" />
+                <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="switch_left" Text="تجميع" Click="@collapse" />
+                <RadzenButton Icon="add" Click="OpenLayouts" Text="المخطط"></RadzenButton>
+
+            </HeaderTemplate>
+            <Columns>
+
+                <RadzenDataGridColumn Property="@nameof(SafeTransaction.TransactionDate)" Title="التاريخ" Width="160px" OrderIndex="2">
+                    <Template Context="data">
+                        @data.TransactionDate.Date.ToString("yyyy-MM-dd")
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn Property="@nameof(SafeTransaction.DocumentId)" Title="رقم المستند" Width="160px">
+
+                    <FooterTemplate>
+                        <b>@invoicegrid.View.Select(i => i.DocumentId).Distinct().Count()</b>
+                    </FooterTemplate>
+                    <GroupFooterTemplate Context="data">
+                        <b>@data.Data.Count</b>
+                    </GroupFooterTemplate>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn Property="@nameof(SafeTransaction.DocumentTypeId)" Title="نوع المستد" Width="160px">
+                  
+                    <Template Context="data">
+                        @data.DocumentType?.DocumentTypeName
+                    </Template>
+                </RadzenDataGridColumn>
+
+
+                <RadzenDataGridColumn Property="@nameof(Safe.SafeId)" Title="الخزينه" Width="160px">
+                    <Template Context="data">
+                        @data.Safe?.SafeName
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn Property="@nameof(SafeTransaction.Value)" Title="القيمة" Width="160px">
+                    <Template Context="data">
+                        @data.Value.ToString("N3")
+                    </Template>
+                    <FooterTemplate>
+
+                        <b>@invoicegrid.View.Sum(i => i.Value).ToString("N3")</b>
+                    </FooterTemplate>
+                    <GroupFooterTemplate>
+                        <b>@(context.Data.Items.Cast<SafeTransaction>().Sum(i => i.Value).ToString("N3"))</b>
+                    </GroupFooterTemplate>
+                </RadzenDataGridColumn>
+
+
+
+
+            </Columns>
+
+        </RadzenDataGrid>
+        <RadzenContextMenu @ref="contextMenu" />
+    
+   
+}
+catch (Exception ex)
+{
+    Console.WriteLine(ex.Message);
+}
+@code {
+
+
+
+    private RadzenContextMenu contextMenu;
+    ///////////
+    IEnumerable<string> ColumnsFrozen = new string[] { };
+    RadzenDropDownDataGrid<IEnumerable<string>> gridColumns;
+    bool isfrozen;
+    List<DataGridColumnsFrozen> dataGridColumnsFrozens = new();
+    RadzenButton btnpopup;
+    Popup popup;
+    public string GridId { get; set; } = "safe-transaction-report";
+    // حفظ اعدادات الجريد
+    DataGridSettings _settings;
+    public DataGridSettings Settings
+    {
+        get
+        {
+            return _settings;
+
+        }
+        set
+        {
+            if (_settings != value)
+            {
+                _settings = value;
+
+            }
+        }
+    }
+
+    //---------------------
+    LoadDataArgs LoadDataArgs = new();
+    [Parameter]
+    public int DocumentId { get; set; }
+
+
+    [Parameter]
+    public string SafesId { get; set; }
+
+    [Parameter]
+    public DateTime from { get; set; }
+
+    [Parameter]
+    public DateTime to { get; set; }
+
+
+    private int[] SafesIdArray { get; set; }
+    public bool IsLoading { get; set; } = true ; 
+
+    DataGridSettings dataGridSettings;
+    public IList<SafeTransaction> selecteditem { get; set; }
+    public IEnumerable<SafeTransaction> Transactions { get; set; }
+    public bool IsExpand { get; set; } = true;
+    RadzenDataGrid<SafeTransaction> invoicegrid;
+    public string UserId { get; set; }
+
+    public DataGridSetting LayoutDefault { get; set; }
+    public int LayoutIdSelection { get; set; }
+
+
+
+
+
+
+    private RadzenDataGridColumn<SafeTransaction> selectedColumn;
+    private string selectedColumnProperty = "";
+    private void ShowColumnContextMenu(MouseEventArgs args,string Property)
+    {
+        ContextMenuService.Open(args, new List<ContextMenuItem>() {new ContextMenuItem() { Text = "تجميع", Value = "group", Icon = "group" } });
+    }
+
+
+
+
+    void OnMenuItemClick(MenuItemEventArgs args)
+    {
+
+    }
+
+
+
+
+
+
+    public async void OpenLayouts()
+    {
+        var setting = JsonSerializer.Serialize<DataGridSettings>(_settings);
+        var columnsfrozensetting = JsonSerializer.Serialize<IEnumerable<string>>(ColumnsFrozen);
+        var result = await DialogService.OpenAsync<DataGridLayouts>("",
+                new Dictionary<string, object>() { { "UserId", UserId }, { "GridId", GridId }, { "Setting", setting }, { "Id", LayoutIdSelection }, { "IsExpand", IsExpand }, { "ColumnFrozenSetting", columnsfrozensetting } },
+               new DialogOptions()
+               {
+                   Resizable = false,
+                   Draggable = true,
+
+                   Width = "900px",
+                   Height = "600px"
+               });
+
+        if (result != null)
+        {
+            ColumnsFrozen = Enumerable.Empty<string>();
+            _settings = JsonSerializer.Deserialize<DataGridSettings>(result.Setting);
+            LayoutIdSelection = result.Id;
+            IsExpand = result.IsExpand;
+            if (result.ColumnsFrozen != null)
+            {
+                ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(result.ColumnsFrozen);
+
+
+            }
+            FrozenColumn();
+            StateHasChanged();
+
+
+        }
+
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+        try
+        {
+            if (firstRender)
+            {
+
+                await runtaskfillcolumnfrozen();
+
+                await gridColumns.Reload();
+                if (LayoutDefault is not null)
+                {
+                    _settings = JsonSerializer.Deserialize<DataGridSettings>(LayoutDefault.Setting);
+                    ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(LayoutDefault.ColumnsFrozen);
+                    FrozenColumn();
+                    LayoutIdSelection = LayoutDefault.Id;
+                    IsExpand = LayoutDefault.IsExpand;
+
+                }
+                IsLoading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+            
+            
+            await base.OnAfterRenderAsync(firstRender);
+
+        }
+        catch (Exception)
+        {
+
+            throw;
+        }
+
+
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+        try
+
+        {
+
+            Dictionary<string, int[]> args = new();
+
+            if (SafesId != null && SafesId != "null")
+            {
+                SafesIdArray = SafesId?.Split(',').Select(int.Parse).ToArray();
+                args.Add("Safes", SafesIdArray);
+            }
+
+            UserId = await service.GetUserId();
+
+
+            Transactions = unitofwork.SafeTransactions.FilterDocumentData(UserId, from, to, DocumentId, args).ToList();
+          
+            LayoutDefault = dgsetting.GetLayoutDefault(UserId, GridId);
+        }
+        catch (Exception)
+        {
+            
+            throw;
+        }
+       
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "6");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+
+    }
+
+    Task<int> runtaskfillcolumnfrozen()
+    {
+        var i = Task.Run(FillColumnsToFrozen);
+
+        return i;
+    }
+
+    int FillColumnsToFrozen()
+    {
+        dataGridColumnsFrozens.Clear();
+        for (int i = 0; i < invoicegrid.ColumnsCollection.Count - 1; i++)
+        {
+            dataGridColumnsFrozens.Add(new()
+            {
+
+                ColumnKey = invoicegrid.ColumnsCollection[i].Property,
+                ColumnTitle = invoicegrid.ColumnsCollection[i].Title,
+
+
+            });
+        }
+
+        return 0;
+
+    }
+    void addpayment()
+    {
+        nav.NavigateTo("/add-payment-safe");
+
+    }
+    void addreceipt()
+    {
+        nav.NavigateTo("/add-receipt-safe");
+
+
+    }
+
+    void FrozenColumn()
+    {
+
+
+        foreach (var item in invoicegrid.ColumnsCollection)
+        {
+            item.Frozen = false;
+        }
+
+        if (ColumnsFrozen != null)
+        {
+
+            for (int i = 0; i < ColumnsFrozen.Count(); i++)
+            {
+                invoicegrid.ColumnsCollection.FirstOrDefault(s => s.Property == ColumnsFrozen.ToArray()[i].ToString()).Frozen = true;
+
+
+            }
+        }
+
+
+
+    }
+    void Edit(SafeTransaction invoice)
+    {
+        switch (invoice.DocumentTypeId)
+        {
+            case 7 :
+                nav.NavigateTo($"add-receipt-safe/{invoice.DocumentId}");
+                break;
+            case 8:
+                nav.NavigateTo($"add-payment-safe/{invoice.DocumentId}");
+                break;
+        }
+        
+
+
+    }
+    void expand()
+    {
+        IsExpand = true;
+    }
+    void collapse()
+    {
+        IsExpand = false;
+    }
+
+
+}

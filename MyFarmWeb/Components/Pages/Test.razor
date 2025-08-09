@@ -1,0 +1,834 @@
+﻿@page "/receipt-bank-details"
+@page "/receipt-bank-details/{ReceiptBankId:int}"
+@using Radzen
+@using Radzen.Blazor
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+<PageTitle>إدخال تفاصيل الإيصال البنكي</PageTitle>
+
+<div class="receipt-details-container">
+    <div class="page-header">
+        <div>
+            <h2>تفاصيل الإيصال البنكي</h2>
+            <p>إدخال وتعديل تفاصيل الإيصال البنكي متعدد الأصناف</p>
+        </div>
+        <div class="header-actions">
+            <RadzenButton Text="إضافة صف جديد (F2)"
+                          Icon="add"
+                          ButtonStyle="ButtonStyle.Success"
+                          Click="@AddNewRow" />
+            <RadzenButton Text="حفظ الكل (F8)"
+                          Icon="save"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="@SaveAll"
+                          IsBusy="@isSaving" />
+            <RadzenButton Text="إلغاء"
+                          Icon="cancel"
+                          ButtonStyle="ButtonStyle.Light"
+                          Click="@Cancel" />
+        </div>
+    </div>
+
+    <!-- معلومات الإيصال الأساسية -->
+    <div class="receipt-info-card">
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="رقم الإيصال" />
+                <RadzenTextBox @bind-Value="@receiptBankId" Disabled="true" class="form-control" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="إجمالي المبلغ" />
+                <RadzenNumeric @bind-Value="@totalAmount" Disabled="true" Format="c" class="form-control total-amount" />
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenLabel Text="عدد الأصناف" />
+                <RadzenTextBox Value="@receiptDetails.Count.ToString()" Disabled="true" class="form-control" />
+            </RadzenColumn>
+        </RadzenRow>
+    </div>
+
+    <!-- جدول التفاصيل -->
+    <div class="details-grid-card">
+        <RadzenDataGrid @ref="detailsGrid"
+                        Data="@receiptDetails"
+                        TItem="ReceiptBankDetailsViewModel"
+                        AllowFiltering="false"
+                        AllowPaging="false"
+                        AllowSorting="true"
+                        EditMode="DataGridEditMode.Single"
+                        RowUpdate="@OnRowUpdate"
+                        RowCreate="@OnRowCreate"
+                    
+                        class="details-grid">
+
+            <Columns>
+                <!-- رقم مسلسل -->
+                <RadzenDataGridColumn TItem="ReceiptBankDetailsViewModel"
+                                      Property="Moslsel"
+                                      Title="م"
+                                      Width="60px"
+                                      TextAlign="TextAlign.Center">
+                    <Template Context="detail">
+                        @detail.Moslsel
+                    </Template>
+                    <EditTemplate Context="detail">
+                        <RadzenNumeric @bind-Value="detail.Moslsel"
+                                       Style="width: 100%"
+                                       Min="1" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <!-- نوع الطرف -->
+                <RadzenDataGridColumn TItem="ReceiptBankDetailsViewModel"
+                                      Property="PartyType"
+                                      Title="نوع الطرف"
+                                      Width="120px">
+                    <Template Context="detail">
+                        <RadzenBadge BadgeStyle="@(detail.PartyType == "عميل" ? BadgeStyle.Primary : BadgeStyle.Secondary)"
+                                     Text="@detail.PartyType" />
+                    </Template>
+                    <EditTemplate Context="detail">
+                        <RadzenDropDown @bind-Value="detail.PartyType"
+                                        Data="@partyTypes"
+                                        Style="width: 100%"
+                                        Change="@((args) => OnPartyTypeChange(detail, args))" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <!-- العميل/المورد -->
+                <RadzenDataGridColumn TItem="ReceiptBankDetailsViewModel"
+                                      Property="PartyName"
+                                      Title="العميل/المورد"
+                                      Width="200px">
+                    <Template Context="detail">
+                        @detail.PartyName
+                    </Template>
+                    <EditTemplate Context="detail">
+                        @if (detail.PartyType == "عميل")
+                        {
+                            <RadzenDropDown @bind-Value="detail.CustomerId"
+                                            Data="@customers"
+                                            TextProperty="Name"
+                                            ValueProperty="Id"
+                                            Placeholder="اختر العميل"
+                                            Style="width: 100%"
+                                            Change="@((args) => OnCustomerChange(detail, args))" />
+                        }
+                        else if (detail.PartyType == "مورد")
+                        {
+                            <RadzenDropDown @bind-Value="detail.VendorId"
+                                            Data="@vendors"
+                                            TextProperty="Name"
+                                            ValueProperty="Id"
+                                            Placeholder="اختر المورد"
+                                            Style="width: 100%"
+                                            Change="@((args) => OnVendorChange(detail, args))" />
+                        }
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <!-- المبلغ -->
+                <RadzenDataGridColumn TItem="ReceiptBankDetailsViewModel"
+                                      Property="Amount"
+                                      Title="المبلغ"
+                                      Width="150px"
+                                      TextAlign="TextAlign.Right">
+                    <Template Context="detail">
+                        <span class="amount-display">@detail.Amount.ToString("N2")</span>
+                    </Template>
+                    <EditTemplate Context="detail">
+                        <RadzenNumeric @bind-Value="detail.Amount"
+                                       Style="width: 100%"
+                                       Format="n2"
+                                       Min="0"
+                                        />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <!-- الملاحظات -->
+                <RadzenDataGridColumn TItem="ReceiptBankDetailsViewModel"
+                                      Property="Notes"
+                                      Title="الملاحظات"
+                                      Width="200px">
+                    <Template Context="detail">
+                        @detail.Notes
+                    </Template>
+                    <EditTemplate Context="detail">
+                        <RadzenTextArea @bind-Value="detail.Notes"
+                                        Style="width: 100%; min-height: 60px;"
+                                        Placeholder="أدخل الملاحظات" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+
+                <!-- أعمدة الإجراءات -->
+                <RadzenDataGridColumn TItem="ReceiptBankDetailsViewModel"
+                                      Filterable="false"
+                                      Sortable="false"
+                                      Width="120px"
+                                      TextAlign="TextAlign.Center">
+                    <Template Context="detail">
+                        <RadzenButton Icon="edit"
+                                      ButtonStyle="ButtonStyle.Light"
+                                      Variant="Variant.Flat"
+                                      Size="ButtonSize.Small"
+                                      Click="@(args => EditRow(detail))"
+                                      @onclick:stopPropagation="true"
+                                      title="تعديل" />
+                        <RadzenButton Icon="delete"
+                                      ButtonStyle="ButtonStyle.Danger"
+                                      Variant="Variant.Flat"
+                                      Size="ButtonSize.Small"
+                                      Click="@(args => DeleteRow(detail))"
+                                      @onclick:stopPropagation="true"
+                                      title="حذف" />
+                    </Template>
+                    <EditTemplate Context="detail">
+                        <RadzenButton Icon="check"
+                                      ButtonStyle="ButtonStyle.Success"
+                                      Variant="Variant.Flat"
+                                      Size="ButtonSize.Small"
+                                      Click="@((args) => SaveRow(detail))"
+                                      title="حفظ" />
+                        <RadzenButton Icon="close"
+                                      ButtonStyle="ButtonStyle.Secondary"
+                                      Variant="Variant.Flat"
+                                      Size="ButtonSize.Small"
+                                      Click="@((args) => CancelEdit(detail))"
+                                      title="إلغاء" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+
+    <!-- ملخص الإجماليات -->
+    <div class="summary-card">
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="3">
+                <div class="summary-item">
+                    <RadzenIcon Icon="receipt" />
+                    <div>
+                        <div class="summary-label">إجمالي الأصناف</div>
+                        <div class="summary-value">@receiptDetails.Count</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <div class="summary-item">
+                    <RadzenIcon Icon="people" />
+                    <div>
+                        <div class="summary-label">العملاء</div>
+                        <div class="summary-value">@receiptDetails.Count(x => x.PartyType == "عميل")</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <div class="summary-item">
+                    <RadzenIcon Icon="business" />
+                    <div>
+                        <div class="summary-label">الموردين</div>
+                        <div class="summary-value">@receiptDetails.Count(x => x.PartyType == "مورد")</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <div class="summary-item total">
+                    <RadzenIcon Icon="account_balance_wallet" />
+                    <div>
+                        <div class="summary-label">إجمالي المبلغ</div>
+                        <div class="summary-value">@totalAmount.ToString("N2")</div>
+                    </div>
+                </div>
+            </RadzenColumn>
+        </RadzenRow>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? ReceiptBankId { get; set; }
+
+    private RadzenDataGrid<ReceiptBankDetailsViewModel> detailsGrid;
+    private List<ReceiptBankDetailsViewModel> receiptDetails = new();
+    private List<Customer> customers = new();
+    private List<Vendor> vendors = new();
+    private List<string> partyTypes = new() { "عميل", "مورد" };
+
+    private string receiptBankId = "";
+    private decimal totalAmount = 0;
+    private bool isSaving = false;
+    private int nextMoslsel = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        receiptBankId = ReceiptBankId?.ToString() ?? "جديد";
+
+        await LoadCustomers();
+        await LoadVendors();
+        await LoadReceiptDetails();
+
+        // إضافة صف فارغ إذا لم توجد بيانات
+        if (!receiptDetails.Any())
+        {
+            AddNewRow();
+        }
+
+        CalculateTotal();
+    }
+
+    private async Task LoadCustomers()
+    {
+        // محاكاة تحميل العملاء من قاعدة البيانات
+        await Task.Delay(300);
+        customers = new List<Customer>
+        {
+            new Customer { Id = 1, Name = "أحمد محمد" },
+            new Customer { Id = 2, Name = "فاطمة علي" },
+            new Customer { Id = 3, Name = "محمد حسن" },
+            new Customer { Id = 4, Name = "نور الدين" },
+            new Customer { Id = 5, Name = "سارة أحمد" }
+        };
+    }
+
+    private async Task LoadVendors()
+    {
+        // محاكاة تحميل الموردين من قاعدة البيانات
+        await Task.Delay(300);
+        vendors = new List<Vendor>
+        {
+            new Vendor { Id = 1, Name = "شركة الأمل للتجارة" },
+            new Vendor { Id = 2, Name = "مؤسسة النور" },
+            new Vendor { Id = 3, Name = "شركة الفجر" },
+            new Vendor { Id = 4, Name = "مكتب الرياض" },
+            new Vendor { Id = 5, Name = "شركة الخليج" }
+        };
+    }
+
+    private async Task LoadReceiptDetails()
+    {
+        if (ReceiptBankId.HasValue)
+        {
+            // محاكاة تحميل التفاصيل من قاعدة البيانات
+            await Task.Delay(500);
+
+            receiptDetails = new List<ReceiptBankDetailsViewModel>
+            {
+                new ReceiptBankDetailsViewModel
+                {
+                    Id = 1,
+                    Moslsel = 1,
+                    ReceiptBankId = ReceiptBankId.Value,
+                    PartyType = "عميل",
+                    CustomerId = 1,
+                    PartyName = "أحمد محمد",
+                    Amount = 1500.00m,
+                    Notes = "دفعة أولى"
+                },
+                new ReceiptBankDetailsViewModel
+                {
+                    Id = 2,
+                    Moslsel = 2,
+                    ReceiptBankId = ReceiptBankId.Value,
+                    PartyType = "مورد",
+                    VendorId = 1,
+                    PartyName = "شركة الأمل للتجارة",
+                    Amount = 2500.00m,
+                    Notes = "سداد فاتورة"
+                }
+            };
+
+            nextMoslsel = receiptDetails.Max(x => x.Moslsel) + 1;
+        }
+    }
+
+    private void AddNewRow()
+    {
+        var newDetail = new ReceiptBankDetailsViewModel
+        {
+            Id = 0, // سيتم تعيينه عند الحفظ
+            Moslsel = nextMoslsel++,
+            ReceiptBankId = ReceiptBankId ?? 0,
+            PartyType = "عميل",
+            Amount = 0,
+            Notes = ""
+        };
+
+        receiptDetails.Add(newDetail);
+        StateHasChanged();
+
+        // بدء تعديل الصف الجديد
+        Task.Delay(100).ContinueWith(_ => InvokeAsync(() => EditRow(newDetail)));
+    }
+
+    private async Task EditRow(ReceiptBankDetailsViewModel detail)
+    {
+        await detailsGrid.EditRow(detail);
+    }
+
+    private async Task SaveRow(ReceiptBankDetailsViewModel detail)
+    {
+        if (ValidateRow(detail))
+        {
+            await detailsGrid.UpdateRow(detail);
+            CalculateTotal();
+        }
+    }
+
+    private async Task CancelEdit(ReceiptBankDetailsViewModel detail)
+    {
+        detailsGrid.CancelEditRow(detail);
+
+        // إذا كان صف جديد وتم إلغاؤه، احذفه
+        if (detail.Id == 0)
+        {
+            receiptDetails.Remove(detail);
+            nextMoslsel--;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteRow(ReceiptBankDetailsViewModel detail)
+    {
+        var result = await DialogService.Confirm(
+            $"هل أنت متأكد من حذف الصف رقم {detail.Moslsel}؟",
+            "تأكيد الحذف",
+            new ConfirmOptions { OkButtonText = "نعم", CancelButtonText = "إلغاء" });
+
+        if (result == true)
+        {
+            receiptDetails.Remove(detail);
+
+            // إعادة ترقيم المسلسل
+            for (int i = 0; i < receiptDetails.Count; i++)
+            {
+                receiptDetails[i].Moslsel = i + 1;
+            }
+
+            nextMoslsel = receiptDetails.Count + 1;
+            CalculateTotal();
+            StateHasChanged();
+
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "تم الحذف",
+                Detail = "تم حذف الصف بنجاح",
+                Duration = 3000
+            });
+        }
+    }
+
+    private bool ValidateRow(ReceiptBankDetailsViewModel detail)
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrEmpty(detail.PartyType))
+            errors.Add("يجب اختيار نوع الطرف");
+
+        if (detail.PartyType == "عميل" && !detail.CustomerId.HasValue)
+            errors.Add("يجب اختيار العميل");
+
+        if (detail.PartyType == "مورد" && !detail.VendorId.HasValue)
+            errors.Add("يجب اختيار المورد");
+
+        if (detail.Amount <= 0)
+            errors.Add("يجب إدخال مبلغ أكبر من صفر");
+
+        if (errors.Any())
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "خطأ في البيانات",
+                Detail = string.Join(", ", errors),
+                Duration = 5000
+            });
+            return false;
+        }
+
+        return true;
+    }
+
+    private void OnPartyTypeChange(ReceiptBankDetailsViewModel detail, object value)
+    {
+        detail.PartyType = value?.ToString();
+        detail.CustomerId = null;
+        detail.VendorId = null;
+        detail.PartyName = "";
+    }
+
+    private void OnCustomerChange(ReceiptBankDetailsViewModel detail, object value)
+    {
+        if (int.TryParse(value?.ToString(), out int customerId))
+        {
+            detail.CustomerId = customerId;
+            detail.VendorId = null;
+            detail.PartyName = customers.FirstOrDefault(c => c.Id == customerId)?.Name ?? "";
+        }
+    }
+
+    private void OnVendorChange(ReceiptBankDetailsViewModel detail, object value)
+    {
+        if (int.TryParse(value?.ToString(), out int vendorId))
+        {
+            detail.VendorId = vendorId;
+            detail.CustomerId = null;
+            detail.PartyName = vendors.FirstOrDefault(v => v.Id == vendorId)?.Name ?? "";
+        }
+    }
+
+    private void CalculateTotal()
+    {
+        totalAmount = receiptDetails.Sum(x => x.Amount);
+        StateHasChanged();
+    }
+
+    private async Task OnRowUpdate(ReceiptBankDetailsViewModel detail)
+    {
+        // تحديث اسم الطرف
+        if (detail.PartyType == "عميل" && detail.CustomerId.HasValue)
+        {
+            detail.PartyName = customers.FirstOrDefault(c => c.Id == detail.CustomerId)?.Name ?? "";
+        }
+        else if (detail.PartyType == "مورد" && detail.VendorId.HasValue)
+        {
+            detail.PartyName = vendors.FirstOrDefault(v => v.Id == detail.VendorId)?.Name ?? "";
+        }
+
+        CalculateTotal();
+    }
+
+    private async Task OnRowCreate(ReceiptBankDetailsViewModel detail)
+    {
+        // معالجة إنشاء صف جديد
+        await OnRowUpdate(detail);
+    }
+
+    private async Task SaveAll()
+    {
+        if (!receiptDetails.Any())
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "تحذير",
+                Detail = "لا توجد بيانات للحفظ",
+                Duration = 3000
+            });
+            return;
+        }
+
+        // التحقق من صحة جميع الصفوف
+        var invalidRows = receiptDetails.Where(detail => !ValidateRowSilent(detail)).ToList();
+        if (invalidRows.Any())
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "خطأ في البيانات",
+                Detail = $"يوجد {invalidRows.Count} صف يحتوي على بيانات غير صحيحة",
+                Duration = 5000
+            });
+            return;
+        }
+
+        try
+        {
+            isSaving = true;
+
+            // محاكاة عملية الحفظ
+            await Task.Delay(2000);
+
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "تم الحفظ بنجاح",
+                Detail = $"تم حفظ {receiptDetails.Count} صف بإجمالي {totalAmount:N2}",
+                Duration = 4000
+            });
+
+            // يمكن الانتقال لصفحة أخرى أو تحديث البيانات
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "خطأ في الحفظ",
+                Detail = ex.Message,
+                Duration = 5000
+            });
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private bool ValidateRowSilent(ReceiptBankDetailsViewModel detail)
+    {
+        return !string.IsNullOrEmpty(detail.PartyType) &&
+               ((detail.PartyType == "عميل" && detail.CustomerId.HasValue) ||
+                (detail.PartyType == "مورد" && detail.VendorId.HasValue)) &&
+               detail.Amount > 0;
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/receipt-bank-list");
+    }
+
+    private void ShowInfoMessage(LoadDataArgs args)
+    {
+        // يمكن إضافة رسائل معلوماتية هنا
+    }
+
+    // معالجة اختصارات لوحة المفاتيح
+    private IJSObjectReference? jsModule;
+    private DotNetObjectReference<ReceiptBankDetails>? dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // dotNetRef = DotNetObjectReference.Create(this);
+            jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/keyboard-handler.js");
+            await jsModule.InvokeVoidAsync("registerKeyboardHandler", dotNetRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task HandleF8KeyPress()
+    {
+        await SaveAll();
+    }
+
+    [JSInvokable]
+    public async Task HandleF2KeyPress()
+    {
+        AddNewRow();
+    }
+
+    [JSInvokable]
+    public async Task HandleEscapeKeyPress()
+    {
+        Cancel();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (jsModule != null)
+        {
+            await jsModule.InvokeVoidAsync("unregisterKeyboardHandler");
+            await jsModule.DisposeAsync();
+        }
+        dotNetRef?.Dispose();
+    }
+
+    // نماذج البيانات
+    public class ReceiptBankDetailsViewModel
+    {
+        public int Id { get; set; }
+        public int Moslsel { get; set; }
+        public int ReceiptBankId { get; set; }
+        public int? CustomerId { get; set; }
+        public int? VendorId { get; set; }
+        public string PartyType { get; set; } = "عميل";
+        public string PartyName { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    public class Customer
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    public class Vendor
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+}
+
+@inject NavigationManager NavigationManager
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+@inject IJSRuntime JSRuntime
+
+<style>
+    .receipt-details-container {
+        padding: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+        .page-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .page-header p {
+            color: #666;
+            margin: 0;
+        }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .receipt-info-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+        .receipt-info-card .form-control {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            color: #333;
+        }
+
+    .total-amount {
+        font-weight: 700;
+        font-size: 18px;
+    }
+
+    .details-grid-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .details-grid {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .amount-display {
+        font-weight: 600;
+        color: #28a745;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .summary-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+        .summary-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-item.total {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .summary-item i {
+            font-size: 24px;
+            color: #667eea;
+        }
+
+        .summary-item.total i {
+            color: white;
+        }
+
+    .summary-label {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 4px;
+    }
+
+    .summary-item.total .summary-label {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .summary-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #333;
+    }
+
+    .summary-item.total .summary-value {
+        color: white;
+    }
+
+    .form-control {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+    /* تحسين مظهر الجدول */
+    :deep(.rz-datatable-data td) {
+        padding: 12px 8px;
+        vertical-align: middle;
+    }
+
+    :deep(.rz-datatable-data tr:hover) {
+        background-color: #f8f9fa;
+    }
+
+    :deep(.rz-button.rz-button-sm) {
+        padding: 4px 8px;
+        margin: 0 2px;
+    }
+
+    /* تحسين الاستجابة */
+    @@media (max-width: 768px) {
+        .receipt-details-container
+
+    {
+        padding: 10px;
+    }
+
+    .page-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+
+    .header-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    }
+</style>

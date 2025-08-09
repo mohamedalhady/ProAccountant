@@ -1,0 +1,53 @@
+﻿@page "/bank-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+<title>البنوك</title>
+<h3 class="mt-4 mb-4 second-color">البنوك</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@Banks" TItem="Bank" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedbank>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة بنك" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Bank.BankName)" Title="اسم البنك" Width="160px" Sortable="true" Filterable="true"/>
+        <RadzenDataGridColumn Property="@nameof(Bank.BankNumber)" Title="رقم الحساب" Width="160px" Sortable="true" Filterable="true"/>
+
+
+        <RadzenDataGridColumn Sortable="false" Filterable="false">
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<Bank> Banks { get; set; }
+    public IList<Bank> selectedbank { get; set; }
+    public string UserId { get; set; }
+    protected override async Task OnInitializedAsync()
+
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Banks = await unitofwork.Bank.GetAllAsync(g => g.UserId == UserId);
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-bank");
+    }
+    void Edit(Bank bank)
+    {
+        nav.NavigateTo($"/add-bank/{bank.BankId}");
+    }
+}

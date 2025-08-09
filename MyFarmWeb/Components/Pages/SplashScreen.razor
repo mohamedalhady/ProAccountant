@@ -1,0 +1,19 @@
+﻿@if (IsVisible)
+{
+    <div class="splash-screen">
+        <div class="spinner"></div>
+        <h3>Loading, please wait...</h3>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Simulate a loading delay (e.g., data fetching or initialization)
+        await Task.Delay(3000);
+        IsVisible = false;
+    }
+}

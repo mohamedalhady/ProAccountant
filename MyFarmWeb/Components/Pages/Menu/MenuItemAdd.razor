@@ -1,0 +1,437 @@
+﻿@page "/menu-item/create"
+@page "/menu-item/edit/{id}"
+@using Radzen
+@using Radzen.Blazor
+@rendermode InteractiveServer
+@inject IUnitOfWork unitOfWork
+<PageTitle>@pageTitle</PageTitle>
+@inject NavigationManager NavigationManager
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+<div class="menu-item-form-container">
+    <div class="form-header">
+        <h2>@pageTitle</h2>
+        <p>@pageDescription</p>
+    </div>
+
+    <div class="form-card">
+        <RadzenTemplateForm TItem="MenuItem" Data="@menuItem" Submit="@HandleSubmit">
+
+            <div class="form-group">
+                <RadzenLabel Text="الكود" Component="Id" />
+                <RadzenTextBox ReadOnly=true @bind-Value="@menuItem.Id" Name="Id" Placeholder="أدخل كود العنصر" class="form-control" />
+                <RadzenRequiredValidator Component="Id" Text="الكود مطلوب" />
+            </div>
+            <div class="form-group">
+                <RadzenLabel Text="النص" Component="Text" />
+                <RadzenTextBox @bind-Value="@menuItem.Text" Name="Text" Placeholder="أدخل نص العنصر" class="form-control" />
+                <RadzenRequiredValidator Component="Text" Text="النص مطلوب" />
+            </div>
+
+            <div class="form-group">
+                <RadzenLabel Text="العنصر الأب" Component="ParentId" />
+                <RadzenDropDownDataGrid @bind-Value="@menuItem.ParentId"
+                                Data="@parentMenuItems"
+                                TextProperty="Text"
+                                ValueProperty="Id"
+                                AllowClear="true"
+                                 Change="() => menuItem.Id = !isEditMode ?  CreateItemId(menuItem.ParentId) : menuItem.Id"
+                                 Name="ParentId"
+                                FocusFilterOnPopup="true" ShowSearch="false" SearchTextPlaceholder="اختر العنصر الأب (اختياري)" Style="width:100%;"
+                                PagerAlwaysVisible=false
+                                Disabled =@(isEditMode ? true : false)
+                                 />
+                <small class="form-text">اتركه فارغاً إذا كان عنصر رئيسي</small>
+                @if (menuItem.Type == true)
+                {
+                    <RadzenRequiredValidator Component="ParentId" Text="يجب ادخال العنصر الاب" />
+
+                }
+
+            </div>
+
+            <div class="form-group">
+                <RadzenLabel Text="الأيقونة" Component="Icon" />
+                <div class="icon-selector">
+                    <RadzenTextBox @bind-Value="@menuItem.Icon" Name="Icon" Placeholder="اسم الأيقونة" class="form-control" >
+                       
+                       
+                    </RadzenTextBox>
+                    <RadzenButton Icon="search" Click="OpenAllIcon">
+
+                    </RadzenButton>
+
+                    <RadzenRequiredValidator Component="Icon" Text="يجب ادخال الايقونه"/>
+                    @if (!string.IsNullOrEmpty(menuItem.Icon))
+                    {
+                        <div class="icon-preview">
+                            <RadzenIcon Icon="@menuItem.Icon" />
+                        </div>
+                    }
+                </div>
+                <div class="icon-suggestions">
+                    @foreach (var icon in suggestedIcons)
+                    {
+                        <div class="icon-option @(menuItem.Icon == icon ? "selected" : "")" @onclick="@(() => SelectIcon(icon))">
+                            <RadzenIcon Icon="@icon" />
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="form-group">
+                <RadzenLabel Text="المسار" Component="Path" />
+                <RadzenTextBox @bind-Value="@menuItem.Path" Name="Path" Placeholder="أدخل مسار الصفحة" class="form-control" />
+                @if(menuItem.Type == true)
+                {
+                    <RadzenRequiredValidator Component="Path" Text="المسار مطلوب" />
+                }
+                     
+            </div>
+
+            <div class="form-group">
+                <RadzenLabel Text="النوع" Component="Type" />
+                <div class="type-selector">
+                    <RadzenRadioButtonList @bind-Value="@menuItem.Type" TValue="bool" class="type-options">
+                        <Items>
+                            <RadzenRadioButtonListItem Text="قائمة رئيسية" Value="false" />
+                            <RadzenRadioButtonListItem Text="قائمة فرعية" Value="true" />
+                        </Items>
+                    </RadzenRadioButtonList>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <RadzenButton @ref=SubmitBtn ButtonType="ButtonType.Submit" Text=@SubmitText Icon="save" ButtonStyle="ButtonStyle.Primary" />
+                <RadzenButton ButtonType="ButtonType.Button" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Light" Click="@New" />
+                <RadzenButton ButtonType="ButtonType.Button" Text="القائمة" Icon="list" ButtonStyle="ButtonStyle.Dark" Click=@(() => NavigationManager.NavigateTo("/menu-items")) />
+            </div>
+        </RadzenTemplateForm>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+    RadzenButton SubmitBtn ; 
+    private MenuItem menuItem = new MenuItem();
+    private List<MenuItem> parentMenuItems = new List<MenuItem>();
+    private string pageTitle = "إضافة عنصر قائمة جديد";
+    private string pageDescription = "أدخل بيانات عنصر القائمة الجديد";
+    private bool isEditMode => !string.IsNullOrEmpty(Id);
+    public string SubmitText { get; set; }
+
+    private List<string> suggestedIcons = new List<string>
+    {
+        "home", "dashboard", "settings", "person", "people",
+        "shopping_cart", "inventory", "receipt", "description",
+        "account_balance", "analytics", "bar_chart", "work",
+        "folder", "folder_open", "expand_more", "chevron_right"
+
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        await LoadParentMenuItems();
+
+        if (isEditMode)
+        {
+            pageTitle = "تعديل عنصر القائمة";
+            pageDescription = "تعديل بيانات عنصر القائمة";
+            await LoadMenuItem();
+            SubmitText = "تعديل";
+        }
+        else {
+            SubmitText = "حفظ";
+            menuItem.Id = CreateItemId(menuItem.ParentId);
+        }
+    }
+
+    private async Task LoadParentMenuItems()
+    {
+
+        parentMenuItems = new List<MenuItem>();
+
+        var items =  await  unitOfWork.MenuItems.GetAllAsync(m => m.Type == false); // استدعاء بيانات العناصر الرئيسية
+        parentMenuItems = items.ToList();
+
+    }
+
+    async void OpenAllIcon()
+    {
+        var result =await DialogService.OpenAsync<IconsList>("", null,new DialogOptions(){Resizable = true,Draggable=true});
+        if (result != null)
+        {
+            menuItem.Icon = result;
+            StateHasChanged();
+        }
+    }
+    private async Task LoadMenuItem()
+    {
+
+        menuItem = new MenuItem();
+        menuItem = unitOfWork.MenuItems.SelectOne(m => m.Id == Id);
+
+    }
+
+    private string GetRandomIcon()
+    {
+        var icons = new[] { "home", "dashboard", "settings", "person", "people",
+                           "shopping_cart", "inventory", "receipt", "description",
+                           "account_balance", "analytics", "bar_chart", "work" };
+
+        Random random = new Random();
+        return icons[random.Next(icons.Length)];
+    }
+
+    private void SelectIcon(string icon)
+    {
+        menuItem.Icon = icon;
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            // التحقق من عدم اختيار العنصر نفسه كأب
+            if (menuItem.ParentId == menuItem.Id)
+            {
+                NotificationService.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Warning,
+                    Summary = "تحذير",
+                    Detail = "لا يمكن اختيار العنصر نفسه كعنصر أب",
+                    Duration = 4000
+                });
+                return;
+            }
+            if (isEditMode)
+            {
+                unitOfWork.MenuItems.UpdateOne(menuItem);
+            }
+            else
+            {
+                unitOfWork.MenuItems.AddOne(menuItem);
+                Id = menuItem.Id;
+                SubmitText = "تعديل";
+
+            }
+
+
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "تم بنجاح",
+                Detail = isEditMode ? "تم تحديث عنصر القائمة بنجاح" : "تم إضافة عنصر القائمة بنجاح",
+                Duration = 4000
+
+            });
+
+            //  NavigationManager.NavigateTo("/menu-items");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "خطأ",
+                Detail = "حدث خطأ أثناء حفظ البيانات: " + ex.Message,
+                Duration = 4000
+            });
+        }
+    }
+
+    private async void New()
+    {
+        menuItem = new();
+        Id= "" ; 
+        await LoadParentMenuItems();
+        SubmitText = "حفظ";
+        menuItem.Id =   CreateItemId(menuItem.ParentId);
+        StateHasChanged();
+    }
+
+    string CreateItemId(string ParentId)
+    {
+        string ItemId = "";
+        if (string.IsNullOrEmpty(ParentId) )
+        {
+            ItemId = unitOfWork.MenuItems.GetMaxStringId(m => m.Id,m => m.Type == false).ToString();
+            if (string.IsNullOrEmpty(ItemId))
+            {
+                ItemId = "1";
+            }else
+            {
+               ItemId = (int.Parse(ItemId) + 1).ToString();
+
+            }
+            return ItemId ; 
+        }
+        else if(!string.IsNullOrEmpty(ParentId) )
+        {
+            ItemId = unitOfWork.MenuItems.GetMaxStringId(m => m.Id, m => m.ParentId == ParentId).ToString();
+            if (string.IsNullOrEmpty(ItemId))
+            {
+                ItemId = ParentId + "01" ; 
+            }else
+            {
+                ItemId = (int.Parse(ItemId) + 1).ToString();
+            }
+            return ItemId ; 
+        }
+        else
+        {
+            return ItemId;
+        }
+      
+    }
+
+
+}
+
+
+
+<style>
+    .menu-item-form-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .form-header {
+        margin-bottom: 30px;
+        text-align: right;
+    }
+
+        .form-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: all 0.3s;
+    }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+    .form-text {
+        color: #6c757d;
+        font-size: 12px;
+        margin-top: 5px;
+    }
+
+    .icon-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .icon-preview {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f5;
+        border-radius: 8px;
+        font-size: 24px;
+    }
+
+    .icon-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .icon-option {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f5;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .icon-option:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        .icon-option.selected {
+            background: #667eea;
+            color: white;
+        }
+
+    .type-selector {
+        margin-top: 10px;
+    }
+
+    .type-options {
+        display: flex;
+        gap: 20px;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+        justify-content: flex-start;
+    }
+
+    :deep(.rz-button.rz-primary) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    :deep(.rz-button.rz-primary:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    :deep(.rz-button.rz-light) {
+        background: #f8f9fa;
+        color: #495057;
+        border: 1px solid #ddd;
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    :deep(.rz-button.rz-light:hover) {
+        background: #e9ecef;
+    }
+</style>

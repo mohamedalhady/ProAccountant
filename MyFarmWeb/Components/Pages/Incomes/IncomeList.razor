@@ -1,0 +1,58 @@
+﻿@page "/income-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+<h3 class="mt-4 mb-4 second-color">المصاريف</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@Incomes" TItem="Income" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedincome>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة ايراد" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Income.IncomeGroupId)" Title="مجموعة الايراد" Width="160px">
+            <Template Context="data">
+                @data.IncomeGroup?.IncomeGroupName
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(Income.IncomeName)" Title="اسم الايراد" Width="160px">
+
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn>
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<Income> Incomes { get; set; }
+    public IList<Income> selectedincome { get; set; }
+    public string UserId { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Incomes = await unitofwork.Incomes.GetAllAsync(i => i.UserId == UserId, "IncomeGroup");
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-income");
+    }
+    void Edit(Income income)
+    {
+        nav.NavigateTo($"add-income/{income.IncomeId}");
+    }
+}

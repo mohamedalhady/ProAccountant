@@ -1,0 +1,399 @@
+﻿
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+@inject IUnitOfWork unitOfWork
+@using Microsoft.AspNetCore.Identity
+@using Radzen
+@using Radzen.Blazor
+@inject Service service
+@* @inject SignInManager<IdentityUser> SignInManager *@
+<div class="sidebar-fixed rtl @(isCollapsed ? "collapsed" : "")">
+    <!-- زر إخفاء/إظهار الـ sidebar -->
+    <div class="sidebar-toggle-btn" @onclick="ToggleSidebar">
+        <RadzenIcon Icon="@(isCollapsed ? "keyboard_arrow_left" : "keyboard_arrow_right")" />
+    </div>
+
+
+        
+            <RadzenPanelMenu Multiple="true" Style="width: 100%; height: 100vh; background: #f8f9fa; border-left: 1px solid #dee2e6; overflow-y: auto;">
+               
+                <!-- شعار النظام -->
+                <div class="sidebar-header">
+                    <RadzenIcon Icon="business" Style="font-size: 32px; color: #667eea;" />
+                    @if (!isCollapsed)
+                    {
+                        <div class="system-title">
+                            <div class="title-main">نظام ERP</div>
+                            <div class="title-sub">إدارة الموارد</div>
+                        </div>
+                    }
+                </div>
+                
+
+             
+                <!-- باقي عناصر القائمة كما هي -->
+                 <RadzenPanelMenuItem Click="LogOut" Text="@(isCollapsed ? "" : "تسجيل الخروج")" Icon="logout"  />
+                <RadzenPanelMenuItem Click="getPath" Text="@(isCollapsed ? "" : "لوحة التحكم")" Icon="dashboard" Path="/dashboard" />
+                <!-- عناصر القائمة الديناميكية من قاعدة البيانات -->
+                @if (isLoading)
+                {
+                    <div class="loading-indicator">
+                        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                        @if (!isCollapsed)
+                        {
+                            <span>جاري التحميل...</span>
+                        }
+                    </div>
+                }
+                else if (menuItems != null && menuItems.Any())
+                {
+                    @foreach (var mainItem in GetMainMenuItems())
+                    {
+
+                        var subItems = GetSubMenuItems(mainItem.Id);
+
+                        @if (subItems.Any())
+                        {
+
+                            <!-- عنصر رئيسي له عناصر فرعية -->
+                            <RadzenPanelMenuItem Text="@(isCollapsed ? "" : mainItem.Text)"
+                                                 Icon="@mainItem.Icon"
+                                                 Expanded="false"
+                                                 Click="getPath" 
+                                                >
+                                @if (!isCollapsed)
+                                {
+
+                                    @foreach (var subItem in subItems)
+                                    {
+
+                                        <RadzenPanelMenuItem Text="@subItem.Text"
+                                                             Icon="@subItem.Icon"
+                                                             Path="@subItem.Path" 
+                                                             />
+                                    }
+                                }
+                            </RadzenPanelMenuItem>
+                        }
+                        else
+                        {
+                            <!-- عنصر رئيسي بدون عناصر فرعية -->
+                            <RadzenPanelMenuItem Text="@(isCollapsed ? "" : mainItem.Text)"
+                                                 Icon="@mainItem.Icon"
+                                                 Path="@mainItem.Path"
+                                                 Click="getPath" />
+                        }
+
+                    }
+                }
+                else
+                {
+                    <!-- رسالة في حالة عدم وجود عناصر -->
+                    @if (!isCollapsed)
+                    {
+                        <div class="no-menu-items">
+                            <RadzenIcon Icon="info" Style="margin-left: 8px;" />
+                            <span>لا توجد عناصر قائمة</span>
+                        </div>
+                    }
+                }
+      
+            
+
+            </RadzenPanelMenu>
+        
+     
+
+  
+    
+
+    
+</div>
+
+@code {
+    private bool isCollapsed = true;
+    private List<MenuItem> menuItems { get; set; }
+
+    private bool isLoading = true;
+    void getPath(MenuItemEventArgs e)
+    {
+        var p = e.Text;
+        var v = e.Value;
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        await LoadMenuItems();
+
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+         JSRuntime.InvokeVoidAsync("updateBodyPadding", isCollapsed);
+
+    }
+    private async Task ToggleSidebar()
+    {
+        isCollapsed = !isCollapsed;
+        await JSRuntime.InvokeVoidAsync("updateBodyPadding", isCollapsed);
+    }
+    // دالة لإعادة تحميل القائمة عند الحاجة
+    public async Task RefreshMenu()
+    {
+        await LoadMenuItems();
+    }
+    private async Task LoadMenuItems()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            // تحميل البيانات من قاعدة البيانات
+            var items = await unitOfWork.MenuItems.GetAllAsync();
+            menuItems = items.ToList();
+        }
+        catch (Exception ex)
+        {
+            // معالجة الأخطاء
+            Console.WriteLine($"خطأ في تحميل عناصر القائمة: {ex.Message}");
+            menuItems = new List<MenuItem>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    private List<MenuItem> GetMainMenuItems()
+    {
+        var items =  menuItems?.Where(x => x.Type == false).ToList() ?? new List<MenuItem>();
+
+        return items.ToList() ; 
+    }
+
+    private List<MenuItem> GetSubMenuItems(string parentId)
+    {
+        return menuItems?.Where(x => x.ParentId == parentId).ToList() ?? new List<MenuItem>();
+    }
+
+    void LogOut()
+    {
+       
+      NavigationManager.NavigateTo("/account/logout", true);
+       // NavigationManager.NavigateTo("/account/login", true);
+
+    }
+}
+
+@inject IJSRuntime JSRuntime
+
+<style>
+    .sidebar-fixed {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 320px;
+        height: 100vh;
+        z-index: 1000;
+        direction: rtl;
+        text-align: right;
+        background: #ffffff;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        border-left: 1px solid #e9ecef;
+        transition: width 0.3s ease;
+    }
+
+        .sidebar-fixed.collapsed {
+            width: 70px;
+        }
+
+    .sidebar-toggle-btn {
+        position: absolute;
+        top: 15px;
+        left: -15px;
+        width: 30px;
+        height: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        z-index: 1001;
+    }
+
+        .sidebar-toggle-btn:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: scale(1.1);
+        }
+
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        padding: 20px 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .sidebar-fixed.collapsed .sidebar-header {
+        justify-content: center;
+        padding: 20px 8px;
+    }
+
+    .system-title {
+        margin-right: 12px;
+        transition: opacity 0.3s ease;
+    }
+
+    .sidebar-fixed.collapsed .system-title {
+        opacity: 0;
+        display: none;
+    }
+
+    .title-main {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .title-sub {
+        font-size: 12px;
+        opacity: 0.9;
+        font-weight: 400;
+    }
+
+    .sidebar-fixed .rz-panelmenu {
+        font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        border-radius: 0;
+        border: none;
+        background: transparent;
+    }
+
+    .sidebar-fixed .rz-panelmenu-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 14px 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        margin: 2px 8px;
+        border-radius: 8px;
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .sidebar-fixed.collapsed .rz-panelmenu-header {
+        padding: 14px 8px;
+        margin: 2px 4px;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .sidebar-fixed .rz-panelmenu-header:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        transform: translateX(-3px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .sidebar-fixed.collapsed .rz-panelmenu-header:hover {
+        transform: translateX(-2px);
+    }
+
+    .sidebar-fixed .rz-panelmenu-content {
+        background: #f8f9fa;
+        border: none;
+        margin: 0 8px 8px 8px;
+        border-radius: 0 0 8px 8px;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .sidebar-fixed.collapsed .rz-panelmenu-content {
+        display: none;
+    }
+
+    .sidebar-fixed .rz-panelmenu-content .rz-panelmenu-header {
+        background: transparent;
+        color: #495057;
+        border: none;
+        border-bottom: 1px solid #e9ecef;
+        padding: 12px 24px;
+        font-weight: 500;
+        margin: 0;
+        border-radius: 0;
+        font-size: 13px;
+    }
+
+        .sidebar-fixed .rz-panelmenu-content .rz-panelmenu-header:hover {
+            background: #e9ecef;
+            color: #212529;
+            transform: translateX(-4px);
+            box-shadow: none;
+        }
+
+        .sidebar-fixed .rz-panelmenu-content .rz-panelmenu-header:last-child {
+            border-bottom: none;
+        }
+
+    .sidebar-fixed .rz-panelmenu-header i {
+        margin-left: 10px;
+        font-size: 18px;
+        width: 20px;
+        text-align: center;
+    }
+
+    .sidebar-fixed.collapsed .rz-panelmenu-header i {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .sidebar-fixed .rz-panelmenu-content .rz-panelmenu-header i {
+        margin-left: 8px;
+        font-size: 16px;
+        color: #6c757d;
+        width: 18px;
+    }
+
+    .sidebar-fixed .rz-panelmenu-header.rz-state-active {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .sidebar-fixed .rz-panelmenu-content .rz-panelmenu-header.rz-state-active {
+        background: #007bff;
+        color: white;
+        box-shadow: inset 4px 0 0 #0056b3;
+    }
+
+        .sidebar-fixed .rz-panelmenu-content .rz-panelmenu-header.rz-state-active i {
+            color: white;
+        }
+
+    /* تخصيص شريط التمرير */
+    .sidebar-fixed .rz-panelmenu::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .sidebar-fixed .rz-panelmenu::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .sidebar-fixed .rz-panelmenu::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+        .sidebar-fixed .rz-panelmenu::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+</style>

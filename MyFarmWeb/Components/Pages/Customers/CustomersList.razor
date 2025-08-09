@@ -1,0 +1,68 @@
+﻿@page "/customers-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+<h3 class="mt-4 mb-4 second-color">العملاء</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@Customers" TItem="Customer" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedcustomer>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة عميل" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Customer.CustomerGroupId)" Title="مجموعة العميل" Width="160px">
+            <Template Context="data">
+                @data.CustomerGroup?.CustomerGroupName
+
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(Customer.CustomerName)" Title="اسم العميل" Width="160px">
+
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(Customer.Phone)" Title="التليفون" Width="160px">
+
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn>
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<Customer> Customers { get; set; }
+    public IList<Customer> selectedcustomer { get; set; }
+    public string UserId { get; set; }
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+
+            return;
+        }
+        UserId = await service.GetUserId();
+        Customers = await unitofwork.Customers.GetAllAsync(i => i.UserId == UserId, "CustomerGroup");
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "1");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-customer");
+    }
+    void Edit(Customer customer)
+    {
+        nav.NavigateTo($"add-customer/{customer.CustomerId}");
+    }
+}

@@ -1,0 +1,151 @@
+﻿@page "/safe-transactions-report-selector"
+@rendermode InteractiveServer
+@layout Layout.MainLayout
+@inject IUnitOfWork unitofwork
+@inject Service service
+@inject MyFarmWeb.Data.MyFarmContext db
+@inject NavigationManager nv
+@inject LayoutState layoutState
+<PageTitle> تقرير حركة الخزنة</PageTitle>
+<RadzenCard class="rz-my-6">
+    <RadzenStack Gap="20px">
+
+        <RadzenRow>
+            <RadzenLabel Component="paymentid">رقم المستند</RadzenLabel>
+            <RadzenNumeric TValue="int" Min="0" @bind-Value="PaymentId" Style="margin-right:20px;" TextAlign="Radzen.TextAlign.Center" Name="paymentid"></RadzenNumeric>
+
+        </RadzenRow>
+
+        <RadzenRow>
+
+
+            <RadzenLabel Component="from">من تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=from Style="margin-right:40px;" Name="from" />
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="to">الى تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=to Style="margin-right:40px;" Name="to" />
+
+        </RadzenRow>
+      
+        <RadzenRow>
+            <RadzenLabel Component="DropDownDatasafe">الخزنه</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridsafe FocusFilterOnPopup="true" ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=SafsId Data=@Safes AllowFilteringByAllStringColumns="true"
+                                        TextProperty="@nameof(Safe.SafeName)" ValueProperty="@nameof(Safe.SafeId)" AllowFiltering="true" Name="DropDownDatasafe">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select all" } })" Disabled="@(!gridsafe.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => SafsId = args ? gridsafe.View.Cast<Safe>().Select(c => c.SafeId) : SafsId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select item" } })" TriState="false" Value="@(SafsId != null && SafsId.Contains(((Safe)data).SafeId))"
+                                                TValue="bool" Change=@(args => gridsafe.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Safe.SafeId)" Title="كود الخزنه" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Safe.SafeName)" Title="اسم الخزنه" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+
+     
+    </RadzenStack>
+    <RadzenButton Text="تنفيذ" Icon="save" Click="search" Style="margin-right:100px;margin-top:20px;"></RadzenButton>
+    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مقبوض" Click="@addreceipt" />
+    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مدفوع" Click="@addpayment" />
+</RadzenCard>
+
+
+
+@code {
+    public int PaymentId { get; set; }
+
+
+    RadzenDropDownDataGrid<IEnumerable<int>> gridsafe;
+ 
+    public int CustomerId { get; set; }
+
+
+    IEnumerable<Safe> Safes;
+
+
+
+    IEnumerable<int> SafsId = new int[] { };
+
+
+   
+    public string safeidstring { get; set; } = "";
+
+    public DateTime from { get; set; }
+    public DateTime to { get; set; }
+    public string UserId { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!await service.IsAuth())
+        {
+            nv.NavigateTo("/Account/Login");
+            return;
+        }
+        
+        UserId = await service.GetUserId();
+         Safes = await unitofwork.Safe.GetAllAsync(i => i.UserId == UserId);
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "6");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void search()
+
+    {
+
+
+       
+        if (SafsId != null && SafsId.Any())
+        {
+            foreach (var item in SafsId)
+            {
+                if (string.IsNullOrEmpty(safeidstring))
+                {
+                    safeidstring = item.ToString();
+
+                }
+                else
+                {
+                    safeidstring = safeidstring + "," + item.ToString();
+                }
+
+            }
+        }
+
+       
+        // Default each parameter to "null" if it's empty or null
+             safeidstring = string.IsNullOrEmpty(safeidstring) ? "null" : safeidstring;
+        var fromDate = from.ToString("yyyy-MM-dd") ?? "null";
+        var toDate = to.ToString("yyyy-MM-dd") ?? "null";
+
+        // Navigate to the constructed URL
+        string url = $"safe-transaction-report/{safeidstring}/{fromDate}/{toDate}/{PaymentId}";
+        nv.NavigateTo(url);
+    }
+
+
+    void addreceipt()
+    {
+        nv.NavigateTo("/add-receipt-safe");
+    }
+    void addpayment()
+    {
+        nv.NavigateTo("/add-payment-safe");
+    }
+}
+

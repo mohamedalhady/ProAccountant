@@ -1,0 +1,250 @@
+﻿@page "/onevendoraccountstatement-report/{VendorId:int}/{from:datetime}/{to:datetime}"
+@using System.Text.Json
+@using MyFarmWeb.Components.Pages.DataGridSettingsFolder
+@using MyFarmWeb.Repository.Enums
+@using MyFarmWeb.Repository.special.Class
+@using Radzen.Blazor.Rendering
+@layout Layout.EmptyLayout
+@inject SetDataGridSetting dgsetting
+@inject IUnitOfWork unitofwork
+@inject IJSRuntime JSRuntime
+@inject NavigationManager nav
+@rendermode InteractiveServer
+@inject Service service
+@using Microsoft.JSInterop
+
+
+@inject DialogService DialogService
+@inject IJSRuntime JSRuntime
+
+<title>كشف حساب مورد</title>
+<RadzenCard>
+    <RadzenRow>
+        <RadzenLabel Text="اسم المورد : " Style="font-size: 20px; font-weight: bold; margin-bottom: 10px;" />
+        <RadzenLabel Text="@(Invoices.ToArray()[0].ManName)" Style="font-size: 18px; font-weight: 300; margin-bottom: 10px;" />
+
+        <RadzenLabel Text="من :" Style="font-size: 20px; font-weight: bold; margin-bottom: 10px;" />
+        <RadzenLabel Text="@(from.ToString("yyyy-MM-dd"))" Style="font-size: 18px; font-weight: 300; margin-bottom: 10px;" />
+
+        <RadzenLabel Text="الى :" Style="font-size: 20px; font-weight: bold; margin-bottom: 10px;" />
+        <RadzenLabel Text="@(to.ToString("yyyy-MM-dd"))" Style="font-size: 18px; font-weight: 300; margin-bottom: 10px;" />
+
+
+    </RadzenRow>
+</RadzenCard>
+<RadzenDataGrid class="mb-5" @bind-Settings=_settings @ref=invoicegrid AllowFiltering="false" AllowAlternatingRows="true" AllowColumnResize="true" FilterMode="FilterMode.SimpleWithMenu" AllowSorting="false"
+                Data="@Invoices" AllowGrouping="false" AllowPaging="false" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="false" GroupFootersAlwaysVisible="false" TItem="AccountStatementReport"
+                ColumnWidth="50px" Style="height:600px;cursor:pointer;"    SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selecteditem
+                RowSelect="OpenDocument"  EmptyText="لايوجد بيانات " ShowMultiColumnSortingIndex="false" AllowMultiColumnSorting="false" ColumnReordered="FrozenColumn" ClearFilterText="الغاء" AllowColumnReorder="false" AllowColumnPicking="false" ColumnsShowingText="اظهار الاعمدة" GridLines="DataGridGridLines.Both">
+
+
+    <Columns>
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.DocumentTypeName)" TextAlign=TextAlign.Center Title="نوع المستند" Width="160px" OrderIndex="1"></RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.TransactionDate)" TextAlign=TextAlign.Center Title="التاريخ" Width="160px" OrderIndex="2">
+            <Template Context="data">
+                @data.TransactionDate.ToString("yyyy-MM-dd")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.DocumentId)" TextAlign=TextAlign.Center Title="رقم المستند" Width="160px" OrderIndex="3" />
+
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.Credit)" TextAlign=TextAlign.Center Title="مدين" Width="160px" OrderIndex="12">
+            <Template Context="data">
+                @data.Credit.ToString("N3")
+            </Template>
+            <FooterTemplate>
+
+                <b>@invoicegrid.View.Sum(i => i.Credit).ToString("N3")</b>
+            </FooterTemplate>
+           
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.Debit)" TextAlign=TextAlign.Center Title="دائن" Width="160px" OrderIndex="12">
+            <Template Context="data">
+                @data.Debit.ToString("N3")
+            </Template>
+            <FooterTemplate>
+
+                <b>@invoicegrid.View.Sum(i => i.Debit).ToString("N3")</b>
+            </FooterTemplate>
+           
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.Balance)" TextAlign=TextAlign.Center Title="الرصيد" Width="160px" OrderIndex="12">
+            <Template Context="data">
+                @data.Balance.ToString("N3")
+            </Template>
+            <FooterTemplate>
+
+                <b>@((invoicegrid.View.Sum(i => i.Credit) - invoicegrid.View.Sum(i => i.Debit)).ToString("N3"))</b>
+            </FooterTemplate>
+            
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+@code {
+    IEnumerable<string> ColumnsFrozen = new string[] { };
+    RadzenDropDownDataGrid<IEnumerable<string>> gridColumns;
+    bool isfrozen;
+    List<DataGridColumnsFrozen> dataGridColumnsFrozens = new();
+    RadzenButton btnpopup;
+    Popup popup;
+    public string GridId { get; set; } = "onevendoraccountstatement-report";
+    // حفظ اعدادات الجريد
+    DataGridSettings _settings;
+    public DataGridSettings Settings
+    {
+        get
+        {
+            return _settings;
+        }
+        set
+        {
+            if (_settings != value)
+            {
+                _settings = value;
+
+            }
+        }
+    }
+
+    //---------------------
+    LoadDataArgs LoadDataArgs = new();
+    [Parameter]
+    public int VendorId { get; set; }
+
+    [Parameter]
+    public DateTime from { get; set; }
+
+    [Parameter]
+    public DateTime to { get; set; }
+
+    private int[] VendorsIdArray { get; set; }
+
+
+    DataGridSettings dataGridSettings;
+    public IList<AccountStatementReport> selecteditem { get; set; }
+    public IEnumerable<AccountStatementReport> Invoices { get; set; }
+    public bool IsExpand { get; set; } = true;
+    RadzenDataGrid<AccountStatementReport> invoicegrid;
+    public string UserId { get; set; }
+
+    public DataGridSetting LayoutDefault { get; set; }
+    public int LayoutIdSelection { get; set; }
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+    
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+        UserId = await service.GetUserId();
+        Invoices = unitofwork.PurchaseInvoiceDetails.CreateAccountStatement(VendorId, from, to).ToList();
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "3");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+
+    Task<int> runtaskfillcolumnfrozen()
+    {
+        var i = Task.Run(FillColumnsToFrozen);
+
+        return i;
+    }
+
+    int FillColumnsToFrozen()
+    {
+        dataGridColumnsFrozens.Clear();
+        for (int i = 0; i < invoicegrid.ColumnsCollection.Count - 1; i++)
+        {
+            dataGridColumnsFrozens.Add(new()
+            {
+
+                ColumnKey = invoicegrid.ColumnsCollection[i].Property,
+                ColumnTitle = invoicegrid.ColumnsCollection[i].Title,
+
+
+            });
+        }
+
+        return 0;
+
+    }
+
+
+    void FrozenColumn()
+    {
+
+
+        foreach (var item in invoicegrid.ColumnsCollection)
+        {
+            item.Frozen = false;
+        }
+
+        if (ColumnsFrozen != null)
+        {
+
+            for (int i = 0; i < ColumnsFrozen.Count(); i++)
+            {
+                invoicegrid.ColumnsCollection.FirstOrDefault(s => s.Property == ColumnsFrozen.ToArray()[i].ToString()).Frozen = true;
+
+
+            }
+        }
+
+
+
+    }
+
+    void expand()
+    {
+        IsExpand = true;
+    }
+    void collapse()
+    {
+        IsExpand = false;
+    }
+    void OpenDocument(AccountStatementReport data)
+    {
+        switch (data.DocumentTypeId)
+        {
+            case (int)DocumentTypesEnum.PurchaseInvoice:
+                nav.NavigateTo($"purchase-invoice/{data.DocumentId}");
+                break;
+            case (int)DocumentTypesEnum.PurchaseReverse:
+                nav.NavigateTo($"purchase-reverse/{data.DocumentId}");
+                break;
+
+            case (int)DocumentTypesEnum.ReceiptSafe:
+                nav.NavigateTo($"add-receipt-safe/{data.DocumentId}");
+
+                break;
+
+            case (int)DocumentTypesEnum.PaymentSafe:
+                nav.NavigateTo($"add-payment-safe/{data.DocumentId}");
+
+                break;
+
+        }
+
+    }
+
+}

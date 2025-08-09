@@ -1,0 +1,441 @@
+﻿@page "/register"
+@using Radzen.Blazor
+@layout Layout.EmptyLayout
+
+<PageTitle>إنشاء حساب جديد - نظام ERP</PageTitle>
+
+<div class="register-container">
+    <div class="register-background">
+        <div class="background-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+        </div>
+    </div>
+
+    <div class="register-content">
+        <div class="register-card">
+            <!-- شعار النظام -->
+            <div class="register-header">
+                <div class="logo-container">
+                    <RadzenIcon Icon="business" Style="font-size: 48px; color: #667eea;" />
+                </div>
+                <h2 class="system-title">إنشاء حساب جديد</h2>
+                <p class="system-subtitle">انضم إلى نظام إدارة الموارد</p>
+            </div>
+
+            <!-- نموذج التسجيل -->
+            <RadzenTemplateForm Data="@registerModel"  class="register-form">
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <div class="form-group">
+                            <RadzenLabel Text="الاسم الأول" class="form-label" />
+                            <RadzenTextBox @bind-Value="@registerModel.FirstName"
+                                           Placeholder="أدخل الاسم الأول"
+                                           class="form-input" />
+                            <RadzenRequiredValidator Component="FirstName" Text="هذا الحقل مطلوب" class="validation-message" />
+                        </div>
+                    </RadzenColumn>
+
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <div class="form-group">
+                            <RadzenLabel Text="الاسم الأخير" class="form-label" />
+                            <RadzenTextBox @bind-Value="@registerModel.LastName"
+                                           Placeholder="أدخل الاسم الأخير"
+                                           class="form-input" />
+                            <RadzenRequiredValidator Component="LastName" Text="هذا الحقل مطلوب" class="validation-message" />
+                        </div>
+                    </RadzenColumn>
+                </RadzenRow>
+
+                <div class="form-group">
+                    <RadzenLabel Text="البريد الإلكتروني" class="form-label" />
+                    <RadzenTextBox @bind-Value="@registerModel.Email"
+                                   Placeholder="أدخل البريد الإلكتروني"
+                                   class="form-input" />
+                    <RadzenRequiredValidator Component="Email" Text="هذا الحقل مطلوب" class="validation-message" />
+                    <RadzenEmailValidator Component="Email" Text="البريد الإلكتروني غير صحيح" class="validation-message" />
+                </div>
+
+                <div class="form-group">
+                    <RadzenLabel Text="رقم الهاتف" class="form-label" />
+                    <RadzenTextBox @bind-Value="@registerModel.PhoneNumber"
+                                   Placeholder="أدخل رقم الهاتف"
+                                   class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <RadzenLabel Text="اسم الشركة" class="form-label" />
+                    <RadzenTextBox @bind-Value="@registerModel.CompanyName"
+                                   Placeholder="أدخل اسم الشركة"
+                                   class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <RadzenLabel Text="المسمى الوظيفي" class="form-label" />
+                    <RadzenDropDown @bind-Value="@registerModel.JobTitle"
+                                    Data="@jobTitles"
+                                    Placeholder="اختر المسمى الوظيفي"
+                                    class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <RadzenLabel Text="كلمة المرور" class="form-label" />
+                    <RadzenPassword @bind-Value="@registerModel.Password"
+                                    Placeholder="أدخل كلمة المرور"
+                                    class="form-input" />
+                    <RadzenRequiredValidator Component="Password" Text="هذا الحقل مطلوب" class="validation-message" />
+                    <RadzenLengthValidator Component="Password" Min="6" Text="كلمة المرور يجب أن تكون 6 أحرف على الأقل" class="validation-message" />
+                </div>
+
+                <div class="form-group">
+                    <RadzenLabel Text="تأكيد كلمة المرور" class="form-label" />
+                    <RadzenPassword @bind-Value="@registerModel.ConfirmPassword"
+                                    Placeholder="أعد إدخال كلمة المرور"
+                                    class="form-input" />
+                    <RadzenRequiredValidator Component="ConfirmPassword" Text="هذا الحقل مطلوب" class="validation-message" />
+                    <RadzenCompareValidator Component="ConfirmPassword" Value="@registerModel.Password" Text="كلمة المرور غير متطابقة" class="validation-message" />
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <RadzenCheckBox @bind-Value="@registerModel.AcceptTerms" Name="AcceptTerms" />
+                        <RadzenLabel Component="AcceptTerms" class="checkbox-label">
+                            أوافق على <a href="/terms" target="_blank">الشروط والأحكام</a> و <a href="/privacy" target="_blank">سياسة الخصوصية</a>
+                        </RadzenLabel>
+                    </div>
+                    <RadzenRequiredValidator Component="AcceptTerms" Text="يجب الموافقة على الشروط والأحكام" class="validation-message" />
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <RadzenCheckBox @bind-Value="@registerModel.ReceiveUpdates" Name="ReceiveUpdates" />
+                        <RadzenLabel Component="ReceiveUpdates" class="checkbox-label">
+                            أرغب في تلقي التحديثات والعروض عبر البريد الإلكتروني
+                        </RadzenLabel>
+                    </div>
+                </div>
+
+                <RadzenButton ButtonType="ButtonType.Submit"
+                              Text="إنشاء الحساب"
+                              class="register-button"
+                              Icon="person_add"
+                              IsBusy="@isLoading" />
+
+                <div class="login-link">
+                    <span>لديك حساب بالفعل؟</span>
+                    <a href="/login">تسجيل الدخول</a>
+                </div>
+            </RadzenTemplateForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private bool isLoading = false;
+
+    private List<string> jobTitles = new List<string>
+    {
+        "مدير عام",
+        "مدير مالي",
+        "مدير مبيعات",
+        "مدير مشتريات",
+        "مدير موارد بشرية",
+        "محاسب",
+        "مندوب مبيعات",
+        "موظف إداري",
+        "مطور نظم",
+        "أخرى"
+    };
+
+    private async Task OnRegister()
+    {
+        isLoading = true;
+
+        try
+        {
+            // محاكاة عملية التسجيل
+            await Task.Delay(3000);
+
+            // هنا يتم إنشاء الحساب الجديد
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "تم إنشاء الحساب بنجاح",
+                Detail = "مرحباً بك في نظام إدارة الموارد. يمكنك الآن تسجيل الدخول.",
+                Duration = 5000
+            });
+
+            // الانتقال إلى صفحة تسجيل الدخول
+            await Task.Delay(2000);
+            NavigationManager.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "خطأ في إنشاء الحساب",
+                Detail = "حدث خطأ أثناء إنشاء الحساب. يرجى المحاولة مرة أخرى.",
+                Duration = 4000
+            });
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class RegisterModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string PhoneNumber { get; set; } = "";
+        public string CompanyName { get; set; } = "";
+        public string JobTitle { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+        public bool AcceptTerms { get; set; } = false;
+        public bool ReceiveUpdates { get; set; } = false;
+    }
+}
+
+@inject NavigationManager NavigationManager
+@inject NotificationService NotificationService
+
+<style>
+    .register-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        padding: 20px 0;
+    }
+
+    .register-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+    }
+
+    .background-shapes {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .shape {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        animation: float 8s ease-in-out infinite;
+    }
+
+    .shape-1 {
+        width: 180px;
+        height: 180px;
+        top: 5%;
+        left: 5%;
+        animation-delay: 0s;
+    }
+
+    .shape-2 {
+        width: 120px;
+        height: 120px;
+        top: 20%;
+        left: 85%;
+        animation-delay: 2s;
+    }
+
+    .shape-3 {
+        width: 200px;
+        height: 200px;
+        top: 70%;
+        left: 10%;
+        animation-delay: 4s;
+    }
+
+    .shape-4 {
+        width: 80px;
+        height: 80px;
+        top: 80%;
+        left: 80%;
+        animation-delay: 6s;
+    }
+
+    @@keyframes float {
+        0%, 100%
+
+    {
+        transform: translateY(0px) rotate(0deg);
+    }
+
+    50% {
+        transform: translateY(-30px) rotate(180deg);
+    }
+
+    }
+
+    .register-content {
+        position: relative;
+        z-index: 10;
+        width: 100%;
+        max-width: 600px;
+        padding: 20px;
+    }
+
+    .register-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .register-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .logo-container {
+        margin-bottom: 15px;
+    }
+
+    .system-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: #333;
+        margin: 0 0 8px 0;
+        font-family: 'Cairo', sans-serif;
+    }
+
+    .system-subtitle {
+        font-size: 16px;
+        color: #666;
+        margin: 0;
+        font-family: 'Cairo', sans-serif;
+    }
+
+    .register-form {
+        width: 100%;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+        font-family: 'Cairo', sans-serif;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e1e5e9;
+        border-radius: 10px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        font-family: 'Cairo', sans-serif;
+    }
+
+        .form-input:focus {
+            border-color: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+            outline: none;
+        }
+
+    .checkbox-group {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .checkbox-label {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.4;
+        cursor: pointer;
+    }
+
+        .checkbox-label a {
+            color: #28a745;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+            .checkbox-label a:hover {
+                text-decoration: underline;
+            }
+
+    .register-button {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+        font-family: 'Cairo', sans-serif;
+    }
+
+        .register-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(40, 167, 69, 0.3);
+        }
+
+    .login-link {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+    }
+
+        .login-link a {
+            color: #28a745;
+            text-decoration: none;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+            .login-link a:hover {
+                text-decoration: underline;
+            }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+    }
+
+    @@media (max-width: 768px) {
+        .register-card
+
+    {
+        padding: 30px 20px;
+        margin: 10px;
+    }
+
+    .system-title {
+        font-size: 24px;
+    }
+
+    }
+</style>

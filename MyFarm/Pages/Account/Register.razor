@@ -1,0 +1,21 @@
+﻿@page "/register"
+@inject RegisterModel model;
+@using Microsoft.AspNetCore.Identity
+@using MyFarm.AccountModels
+<div class="container">
+
+    <EditForm Model="model" OnValidSubmit="register">
+        <InputText DisplayName="اسم المتخدم" @bind-Value="model.Email"></InputText>
+
+        <InputText DisplayName="الرقم السري" @bind-Value="model.Password"></InputText>
+        <InputText DisplayName="تاكيد الرقم السري" @bind-Value="model.ConfirmPassword"></InputText>
+         <button type="submit" ></button>
+    </EditForm>
+  
+</div>
+@code {
+    void register()
+    {
+        
+    }
+}

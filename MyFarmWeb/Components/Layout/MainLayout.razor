@@ -1,0 +1,422 @@
+﻿@using MyFarmWeb.Components.Pages.MyComponents
+@inherits LayoutComponentBase
+
+<RadzenComponents @rendermode="InteractiveServer"/>
+@inject Service service
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden; /* منع التمرير على مستوى الصفحة */
+    }
+
+    body {
+        font-family: 'Cairo', sans-serif;
+        direction: rtl;
+        text-align: right;
+        background-color: #f5f6fa;
+        padding-right: 320px; /* مساحة للـ sidebar */
+        transition: padding-right 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        height: 100vh; /* ارتفاع كامل للشاشة */
+    }
+
+        body.sidebar-collapsed {
+            padding-right: 70px; /* مساحة للـ sidebar المطوي */
+        }
+
+    .main-content {
+        flex: 1; /* يأخذ المساحة المتبقية */
+        display: flex;
+        flex-direction: column;
+        height: 100vh; /* ارتفاع كامل للشاشة */
+        overflow: hidden; /* منع التمرير على هذا المستوى */
+        min-width: 0; /* يسمح بتقليص العرض */
+    }
+
+    .content-wrapper {
+        flex: 1; /* يأخذ المساحة المتبقية بعد الـ header */
+        overflow: auto; /* السماح بالتمرير العمودي والأفقي */
+        padding: 20px;
+        height: calc(100vh - 80px); /* اطرح ارتفاع الـ header */
+        min-width: 0; /* يسمح بتقليص العرض */
+    }
+
+    .header-bar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        flex-shrink: 0; /* منع تقليص الـ header */
+        min-height: 80px; /* ارتفاع ثابت للـ header */
+        overflow: hidden; /* منع التمرير في الـ header */
+    }
+
+    .header-title {
+        font-size: 24px;
+        font-weight: 600;
+        white-space: nowrap; /* منع كسر النص */
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(255,255,255,0.1);
+        padding: 8px 16px;
+        border-radius: 25px;
+        backdrop-filter: blur(10px);
+        white-space: nowrap; /* منع كسر النص */
+        flex-shrink: 0; /* منع تقليص معلومات المستخدم */
+    }
+
+    .breadcrumb-nav {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        border-right: 4px solid #007bff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        flex-shrink: 0; /* منع تقليص الـ breadcrumb */
+        min-width: fit-content; /* عرض مناسب للمحتوى */
+    }
+
+    .page-content {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        margin-bottom: 30px;
+        min-width: fit-content; /* عرض مناسب للمحتوى */
+        width: 100%;
+    }
+
+    /* تخصيص شريط التمرير العمودي */
+    .content-wrapper::-webkit-scrollbar:vertical {
+        width: 8px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-track:vertical {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-thumb:vertical {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+        .content-wrapper::-webkit-scrollbar-thumb:vertical:hover {
+            background: #a8a8a8;
+        }
+
+    /* تخصيص شريط التمرير الأفقي */
+    .content-wrapper::-webkit-scrollbar:horizontal {
+        height: 8px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-track:horizontal {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .content-wrapper::-webkit-scrollbar-thumb:horizontal {
+        background: #667eea;
+        border-radius: 4px;
+    }
+
+        .content-wrapper::-webkit-scrollbar-thumb:horizontal:hover {
+            background: #5a6fd8;
+        }
+
+    /* تخصيص زاوية التقاء شريطي التمرير */
+    .content-wrapper::-webkit-scrollbar-corner {
+        background: #f1f1f1;
+    }
+
+    /* دعم Firefox */
+    .content-wrapper {
+        scrollbar-width: thin;
+        scrollbar-color: #c1c1c1 #f1f1f1;
+    }
+
+    /* استجابة للشاشات الصغيرة */
+    @@media (max-width: 768px) {
+        body
+
+    {
+        padding-right: 0;
+    }
+
+    .content-wrapper {
+        height: calc(100vh - 70px); /* ارتفاع أقل للشاشات الصغيرة */
+        padding: 15px;
+    }
+
+    .header-bar {
+        min-height: 70px;
+        padding: 15px 20px;
+    }
+
+    .header-title {
+        font-size: 18px;
+    }
+
+    .sidebar-fixed {
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    }
+
+        .sidebar-fixed.show {
+            transform: translateX(0);
+        }
+
+    .mobile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+        display: none;
+    }
+
+        .mobile-overlay.show {
+            display: block;
+        }
+
+    }
+
+    /* تحسينات إضافية للأداء */
+    .main-content {
+        will-change: scroll-position;
+    }
+
+    .content-wrapper {
+        will-change: scroll-position;
+        scroll-behavior: smooth;
+    }
+
+    /* تحسين التمرير للجداول الكبيرة */
+    .page-content table {
+        min-width: 100%;
+        white-space: nowrap;
+    }
+
+    .page-content .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* تحسين عرض المحتوى العريض */
+    .wide-content {
+        min-width: 1200px; /* عرض أدنى للمحتوى العريض */
+    }
+
+    .extra-wide-content {
+        min-width: 1600px; /* عرض أدنى للمحتوى الأعرض */
+    }
+
+    /* مؤشر التمرير الأفقي */
+    .scroll-indicator {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(102, 126, 234, 0.9);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+    }
+
+        .scroll-indicator.show {
+            opacity: 1;
+        }
+
+    /* تحسين الأداء للمحتوى الكبير */
+    .content-wrapper {
+        contain: layout style paint;
+    }
+</style>
+@inject MyFarmWeb.Repository.LayoutState layoutState
+@implements IDisposable
+<LoadMenuItems />
+<NavMenu />
+<!-- Mobile Overlay -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <!-- Header -->
+    <div class="header-bar">
+        <div style="display: flex; align-items: center; gap: 15px; min-width: 0; flex: 1;">
+            <button class="btn btn-link text-white d-md-none" onclick="toggleSidebar()" style="border: none; background: none; font-size: 20px; flex-shrink: 0;">
+                <i class="material-icons">menu</i>
+            </button>
+            <div class="header-title">نظام إدارة الموارد المؤسسية</div>
+        </div>
+        <div class="user-info">
+            <RadzenIcon Icon="account_circle" Style="font-size: 24px;" />
+            <span>مرحباً، أحمد محمد</span>
+            <RadzenIcon Icon="keyboard_arrow_down" Style="font-size: 18px;" />
+        </div>
+    </div>
+   
+    <!-- Content Wrapper - هنا سيظهر التمرير العمودي والأفقي -->
+    <div class="content-wrapper" id="contentWrapper">
+        <!-- Breadcrumb -->
+      
+
+        <!-- Page Content -->
+      
+           <div class="page-content">
+                
+                <MyFarmWeb.Components.Pages.MyComponents.BreadCrumb menuItems="layoutState._MenuItems" />
+         
+                @Body
+            </div>
+   
+        
+    </div>
+</div>
+
+<!-- مؤشر التمرير -->
+<div class="scroll-indicator" id="scrollIndicator">
+    التمرير الأفقي متاح
+</div>
+
+<!-- Radzen Dialog, Notification, Tooltip and ContextMenu component -->
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />
+<RadzenContextMenu />
+
+@code{
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        layoutState.OnChange += HandleLayoutStateChange;
+       
+    }
+
+    public void Dispose()
+    {
+        layoutState.OnChange -= HandleLayoutStateChange;
+    }
+
+    private void HandleLayoutStateChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+}
+
+
+<script>
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar-fixed');
+        const overlay = document.getElementById('mobileOverlay');
+
+        if (window.innerWidth <= 768) {
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+    }
+
+    // إغلاق الـ sidebar عند تغيير حجم الشاشة
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            const sidebar = document.querySelector('.sidebar-fixed');
+            const overlay = document.getElementById('mobileOverlay');
+            // sidebar.classList.remove('show');
+            // overlay.classList.remove('show');
+        }
+    });
+
+    window.updateBodyPadding = (isCollapsed) => {
+        if (isCollapsed) {
+            document.body.classList.add('sidebar-collapsed');
+        } else {
+            document.body.classList.remove('sidebar-collapsed');
+        }
+    };
+
+    // مؤشر التمرير الأفقي
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentWrapper = document.getElementById('contentWrapper');
+        const scrollIndicator = document.getElementById('scrollIndicator');
+        let scrollTimeout;
+
+        if (contentWrapper && scrollIndicator) {
+            contentWrapper.addEventListener('scroll', function() {
+                // إظهار المؤشر عند التمرير الأفقي
+                if (contentWrapper.scrollLeft > 0) {
+                    scrollIndicator.classList.add('show');
+
+                    // إخفاء المؤشر بعد توقف التمرير
+                    clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(() => {
+                        scrollIndicator.classList.remove('show');
+                    }, 2000);
+                } else {
+                    scrollIndicator.classList.remove('show');
+                }
+            });
+
+            // فحص إمكانية التمرير الأفقي عند تحميل الصفحة
+            function checkHorizontalScroll() {
+                if (contentWrapper.scrollWidth > contentWrapper.clientWidth) {
+                    // يمكن التمرير أفقياً
+                    contentWrapper.style.cursor = 'grab';
+                } else {
+                    contentWrapper.style.cursor = 'default';
+                }
+            }
+
+            // فحص عند تحميل الصفحة وتغيير حجم النافذة
+            checkHorizontalScroll();
+            window.addEventListener('resize', checkHorizontalScroll);
+
+            // مراقبة تغييرات المحتوى
+            const observer = new MutationObserver(checkHorizontalScroll);
+            observer.observe(contentWrapper, {
+                childList: true,
+                subtree: true,
+                attributes: true
+            });
+        }
+    });
+
+    // دالة لإضافة فئة للمحتوى العريض
+    window.setContentWidth = (width) => {
+        const pageContent = document.querySelector('.page-content');
+        if (pageContent) {
+            pageContent.classList.remove('wide-content', 'extra-wide-content');
+            if (width === 'wide') {
+                pageContent.classList.add('wide-content');
+            } else if (width === 'extra-wide') {
+                pageContent.classList.add('extra-wide-content');
+            }
+        }
+    };
+</script>

@@ -1,0 +1,323 @@
+﻿@page "/vendoraccountstatement-report/{VendorsId}/{from:datetime}/{to:datetime}"
+@using System.Text.Json
+@using MyFarmWeb.Components.Pages.DataGridSettingsFolder
+@using MyFarmWeb.Repository.Enums
+@using MyFarmWeb.Repository.special.Class
+@using Radzen.Blazor.Rendering
+@layout Layout.EmptyLayout
+@inject SetDataGridSetting dgsetting
+@inject IUnitOfWork unitofwork
+@inject IJSRuntime JSRuntime
+@inject NavigationManager nav
+@rendermode InteractiveServer
+@inject Service service
+@using Microsoft.JSInterop
+
+
+@inject DialogService DialogService
+@inject IJSRuntime JSRuntime
+
+<title>كشف حساب مورد</title>
+<RadzenCard>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Style="width:50%;margin-right:40px;">
+        <RadzenLabel Component="DropDownfrozen">اختيار الاعمده </RadzenLabel>
+        <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridColumns ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                @bind-Value=ColumnsFrozen Data=@dataGridColumnsFrozens AllowClear="true"
+                                TextProperty="@nameof(DataGridColumnsFrozen.ColumnTitle)" ValueProperty="@nameof(DataGridColumnsFrozen.ColumnKey)" AllowFiltering="true" Name="DropDownfrozen">
+            <Columns>
+                <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                    <HeaderTemplate>
+                        <RadzenCheckBox InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "اختيار الكل" }})" Disabled="@(!gridColumns.AllowSelectAll)" TriState="false" TValue="bool"
+                                        Change="@(args => ColumnsFrozen = args ? gridColumns.View.Cast<DataGridColumnsFrozen>().Select(c => c.ColumnKey) : ColumnsFrozen = Enumerable.Empty<string>())" />
+                    </HeaderTemplate>
+                    <Template Context="data">
+                        <RadzenCheckBox InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "اختار عمود" }})" TriState="false" Value="@(ColumnsFrozen != null && ColumnsFrozen.Contains(((DataGridColumnsFrozen) data).ColumnKey))"
+                                        TValue="bool" Change=@(args => gridColumns.SelectItem(data)) @onclick:stopPropagation />
+                    </Template>
+                </RadzenDropDownDataGridColumn>
+
+
+                <RadzenDropDownDataGridColumn Property="@nameof(DataGridColumnsFrozen.ColumnTitle)" Title="اسم العمود" />
+
+            </Columns>
+        </RadzenDropDownDataGrid>
+        <RadzenButton ButtonStyle="ButtonStyle.Danger" Text="تجميد" Click="@FrozenColumn" />
+    </RadzenStack>
+
+
+</RadzenCard>
+<RadzenDataGrid class="mb-5" @bind-Settings=_settings @ref=invoicegrid AllowFiltering="true" AllowAlternatingRows="true" AllowColumnResize="true" FilterMode="FilterMode.SimpleWithMenu" AllowSorting="true"
+                Data="@Invoices" AllowGrouping="true" AllowPaging="false" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true" GroupFootersAlwaysVisible="true" TItem="AccountStatementReport"
+                ColumnWidth="50px" Style="height:600px;cursor:pointer;" GroupPanelText="اسحب هنا للتجميع" AllGroupsExpanded="IsExpand" LogicalFilterOperator="LogicalFilterOperator.And" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selecteditem
+              RowSelect="OpenDocument"  ApplyFilterText="تصفية" EmptyText="لايوجد بيانات " ShowMultiColumnSortingIndex="true" AllowMultiColumnSorting="true" ColumnReordered="FrozenColumn" ClearFilterText="الغاء" AllowColumnReorder="true" AllowColumnPicking="true" ColumnsShowingText="اظهار الاعمدة" GridLines="DataGridGridLines.Both">
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="expand" Text="توسيع" Click="@expand" />
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="switch_left" Text="تجميع" Click="@collapse" />
+        <RadzenButton Icon="add" Click="OpenLayouts" Text="المخطط"></RadzenButton>
+
+    </HeaderTemplate>
+    <Columns>
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.DocumentTypeName)" Title="نوع المستند" Width="160px" OrderIndex="1"></RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.TransactionDate)" Title="التاريخ" Width="160px" OrderIndex="2">
+            <Template Context="data">
+                @data.TransactionDate.ToString("yyyy-MM-dd")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.DocumentId)" Title="رقم المستند" Width="160px" OrderIndex="3">
+
+            <FooterTemplate>
+                <b>@invoicegrid.View.Select(i => i.DocumentId).Distinct().Count()</b>
+            </FooterTemplate>
+            <GroupFooterTemplate Context="data">
+                <b>@data.Data.Count</b>
+            </GroupFooterTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.ManId)" Title="كود المورد" Width="160px" OrderIndex="4" />
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.ManName)" Title="اسم المورد" Width="160px" OrderIndex="5" />
+       
+        <RadzenDataGridColumn Property="@nameof(AccountStatementReport.Value)" Title="القيمة" Width="160px" OrderIndex="12">
+            <Template Context="data">
+                @data.Value.ToString("N3")
+            </Template>
+            <FooterTemplate>
+
+                <b>@invoicegrid.View.Sum(i => i.Value).ToString("N3")</b>
+            </FooterTemplate>
+            <GroupFooterTemplate>
+                <b>@(context.Data.Items.Cast<AccountStatementReport>().Sum(i => i.Value).ToString("N3"))</b>
+            </GroupFooterTemplate>
+        </RadzenDataGridColumn>
+    </Columns>
+
+</RadzenDataGrid>
+@code {
+    IEnumerable<string> ColumnsFrozen = new string[] { };
+    RadzenDropDownDataGrid<IEnumerable<string>> gridColumns;
+    bool isfrozen;
+    List<DataGridColumnsFrozen> dataGridColumnsFrozens = new();
+    RadzenButton btnpopup;
+    Popup popup;
+    public string GridId { get; set; } = "vendoraccountstatement-report";
+    // حفظ اعدادات الجريد
+    DataGridSettings _settings;
+    public DataGridSettings Settings
+    {
+        get
+        {
+            return _settings;
+        }
+        set
+        {
+            if (_settings != value)
+            {
+                _settings = value;
+
+            }
+        }
+    }
+
+    //---------------------
+    LoadDataArgs LoadDataArgs = new();
+    [Parameter]
+    public string VendorsId { get; set; }
+
+    [Parameter]
+    public DateTime from { get; set; }
+
+    [Parameter]
+    public DateTime to { get; set; }
+
+    private int[] VendorsIdArray { get; set; }
+
+
+    DataGridSettings dataGridSettings;
+    public IList<AccountStatementReport> selecteditem { get; set; }
+    public IEnumerable<AccountStatementReport> Invoices { get; set; }
+    public bool IsExpand { get; set; } = true;
+    RadzenDataGrid<AccountStatementReport> invoicegrid;
+    public string UserId { get; set; }
+
+    public DataGridSetting LayoutDefault { get; set; }
+    public int LayoutIdSelection { get; set; }
+
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    public async void OpenLayouts()
+    {
+        var setting = JsonSerializer.Serialize<DataGridSettings>(_settings);
+        var columnsfrozensetting = JsonSerializer.Serialize<IEnumerable<string>>(ColumnsFrozen);
+        var result = await DialogService.OpenAsync<DataGridLayouts>("",
+                new Dictionary<string, object>() { { "UserId", UserId }, { "GridId", GridId }, { "Setting", setting }, { "Id", LayoutIdSelection }, { "IsExpand", IsExpand }, { "ColumnFrozenSetting", columnsfrozensetting } },
+               new DialogOptions()
+                   {
+                       Resizable = false,
+                       Draggable = true,
+
+                       Width = "900px",
+                       Height = "600px"
+                   });
+
+        if (result != null)
+        {
+            ColumnsFrozen = Enumerable.Empty<string>();
+            _settings = JsonSerializer.Deserialize<DataGridSettings>(result.Setting);
+            LayoutIdSelection = result.Id;
+            IsExpand = result.IsExpand;
+            if (result.ColumnsFrozen != null)
+            {
+                ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(result.ColumnsFrozen);
+
+
+            }
+            FrozenColumn();
+            StateHasChanged();
+
+
+        }
+
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+
+        if (firstRender)
+        {
+            await runtaskfillcolumnfrozen();
+
+            await gridColumns.Reload();
+            if (LayoutDefault is not null)
+            {
+                _settings = JsonSerializer.Deserialize<DataGridSettings>(LayoutDefault.Setting);
+                ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(LayoutDefault.ColumnsFrozen);
+                FrozenColumn();
+                LayoutIdSelection = LayoutDefault.Id;
+                IsExpand = LayoutDefault.IsExpand;
+
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+        if (VendorsId != null && VendorsId != "null")
+        {
+            VendorsIdArray = VendorsId?.Split(',').Select(int.Parse).ToArray();
+        }
+
+
+        UserId = await service.GetUserId();
+        Invoices = unitofwork.PurchaseInvoiceDetails.CreateAccountStatement(VendorsIdArray,from, to,UserId).ToList();
+
+        LayoutDefault = dgsetting.GetLayoutDefault(UserId, GridId);
+
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "3");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+
+
+    }
+
+    Task<int> runtaskfillcolumnfrozen()
+    {
+        var i = Task.Run(FillColumnsToFrozen);
+
+        return i;
+    }
+
+    int FillColumnsToFrozen()
+    {
+        dataGridColumnsFrozens.Clear();
+        for (int i = 0; i < invoicegrid.ColumnsCollection.Count - 1; i++)
+        {
+            dataGridColumnsFrozens.Add(new()
+                {
+
+                    ColumnKey = invoicegrid.ColumnsCollection[i].Property,
+                    ColumnTitle = invoicegrid.ColumnsCollection[i].Title,
+
+
+                });
+        }
+
+        return 0;
+
+    }
+
+
+    void FrozenColumn()
+    {
+
+
+        foreach (var item in invoicegrid.ColumnsCollection)
+        {
+            item.Frozen = false;
+        }
+
+        if (ColumnsFrozen != null)
+        {
+
+            for (int i = 0; i < ColumnsFrozen.Count(); i++)
+            {
+                invoicegrid.ColumnsCollection.FirstOrDefault(s => s.Property == ColumnsFrozen.ToArray()[i].ToString()).Frozen = true;
+
+
+            }
+        }
+
+
+
+    }
+
+    void expand()
+    {
+        IsExpand = true;
+    }
+    void collapse()
+    {
+        IsExpand = false;
+    }
+    void OpenDocument(AccountStatementReport data)
+    {
+        switch (data.DocumentTypeId)
+        {
+            case (int)DocumentTypesEnum.PurchaseInvoice:
+                nav.NavigateTo($"purchase-invoice/{data.DocumentId}");
+                break;
+            case (int)DocumentTypesEnum.PurchaseReverse:
+                nav.NavigateTo($"purchase-reverse/{data.DocumentId}");
+                break;
+
+            case (int)DocumentTypesEnum.ReceiptSafe :
+                nav.NavigateTo($"add-receipt-safe/{data.DocumentId}");
+
+            break ; 
+
+            case (int)DocumentTypesEnum.PaymentSafe :
+                nav.NavigateTo($"add-payment-safe/{data.DocumentId}");
+
+            break ; 
+          
+        }
+
+    }
+
+}

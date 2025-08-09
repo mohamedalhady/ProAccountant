@@ -1,0 +1,130 @@
+﻿@page "/add-expens-group"
+@page "/add-expens-group/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NavigationManager nav
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject ExpenseGroup expensgroup
+@inject DialogService dialogService
+<PageTitle>اضافة مجموعة مصروف</PageTitle>
+<EditForm Model="expensgroup" FormName="add-expens-group" class="form-control p-5 m-2 ">
+
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var expens in Errors)
+                {
+                    <li>@expens.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم مجموعة المصاريف" Component="groupname" Style="width: 100%; max-width: 200px;" />
+        <RadzenTextBox @bind-Value=expensgroup.ExpenseGroupName Style="width: 100%; max-width: 400px;" Name="groupname" />
+
+
+    </RadzenRow>
+
+
+    <RadzenRow>
+      
+         <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="newexpensgroup" />
+
+        <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="addexpensgroup" />
+
+    </RadzenRow>
+
+</EditForm>
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenButton newbtn;
+    RadzenButton Cancelbtn;
+
+    public RadzenButton addbtn { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    public bool IsValid { get; set; }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        if (Id > 0)
+        {
+            expensgroup = unitofwork.ExpenseGroups.SelectOne(i => i.ExpenseGroupId == Id && i.UserId == UserId);
+        }
+    }
+    void newexpensgroup()
+    {
+        expensgroup = new();
+        Errors.Clear();
+        Id = 0;
+        addbtn.Text = "حفظ";
+    }
+    async void addexpensgroup()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.ExpenseGroups.UpdateOne(expensgroup);
+            }
+            else
+            {
+                expensgroup.UserId = UserId;
+                unitofwork.ExpenseGroups.AddOne(expensgroup);
+                Id = expensgroup.ExpenseGroupId;
+                addbtn.Text = "تعديل";
+                dialogService.Close(true);
+            }
+       
+
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+        }
+
+    }
+  
+    bool validation()
+    {
+        Errors.Clear();
+        if (string.IsNullOrEmpty(expensgroup.ExpenseGroupName))
+        {
+            Errors.Add("groupname", "يجب ادخال اسم مجموعة المصاريف");
+
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+}

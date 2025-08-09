@@ -1,0 +1,187 @@
+﻿@page "/add-customer"
+@page "/add-customer/{Id:int}"
+@using MyFarmWeb.Components.Account.Shared
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject Customer customer
+@inject NavigationManager nav
+@inject DialogService dialogService
+@inject LayoutState layoutState
+
+
+    <PageTitle>اضافة عميل</PageTitle>
+    <EditForm Model="customer" FormName="add-customer" class="form-control p-5 m-2 ">
+
+
+        @if (Errors.Count > 0)
+        {
+            <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+                <ul>
+                    @foreach (var item in Errors)
+                    {
+                        <li>@item.Value</li>
+                    }
+                </ul>
+            </RadzenAlert>
+        }
+        <RadzenRow class="mb-4">
+            <RadzenLabel Text="مجموعة العميل" Component="customername" Style="width: 100%; max-width: 150px;" />
+            <RadzenDropDown @ref="groupname" @bind-Value=customer.CustomerGroupId Data=@CustomerGroups ValueProperty="@nameof(CustomerGroup.CustomerGroupId)" TextProperty="@nameof(CustomerGroup.CustomerGroupName)" Style="width: 100%; max-width: 400px;" Name="customername" />
+            <RadzenButton Icon="add" Click="addcustomergroup" @ref="btnpopup"></RadzenButton>
+        </RadzenRow>
+
+        <RadzenRow class="mb-4">
+            <RadzenLabel Text="اسم العميل" Component="customername" Style="width: 100%; max-width: 150px;" />
+            <RadzenTextBox @bind-Value=customer.CustomerName Style="width: 100%; max-width: 400px;" Name="customername" />
+
+
+        </RadzenRow>
+
+        <RadzenRow class="mb-4">
+            <RadzenLabel Text="التليفون" Component="customerphone" Style="width: 100%; max-width: 150px;" />
+            <RadzenTextBox @bind-Value=customer.Phone Style="width: 100%; max-width: 400px;" Name="customerphone" />
+        </RadzenRow>
+        <RadzenRow>
+
+            <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="NewCustomer" />
+            <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="InsertCustomer" />
+
+        </RadzenRow>
+
+
+    </EditForm>
+ 
+
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenButton newbtn;
+    RadzenButton addbtn;
+    public IEnumerable<CustomerGroup> CustomerGroups { get; set; }
+    RadzenDropDown<int> groupname;
+
+
+    public bool IsValid { get; set; }
+    RadzenButton btnpopup;
+    RadzenButton Cancelbtn;
+    [Parameter]
+    public System.Action ClosePopup { get; set; }
+
+    private List<MenuItem> menuItems { get; set; } = new();
+
+    protected async override Task OnInitializedAsync()
+
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+
+            return;
+        }
+        UserId = await service.GetUserId();
+        await  updatecustomergroup();
+        if (Id > 0)
+        {
+            customer =await unitofwork.Customers.GetByIdAsync(Id);
+        }
+
+        var menu =await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "1");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+       
+        
+    }
+    void NewCustomer()
+    {
+        customer = new();
+        Id = 0;
+        Errors.Clear();
+
+    }
+    async void InsertCustomer()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Customers.UpdateOne(customer);
+            }
+            else
+            {
+                customer.UserId = UserId;
+                unitofwork.Customers.AddOne(customer);
+                addbtn.Text = "تعديل";
+                Id = customer.CustomerId;
+                dialogService.Close(true);
+            }
+
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+
+        }
+
+
+    }
+
+    bool validation()
+    {
+        Errors.Clear();
+        if (customer.CustomerGroupId == 0)
+        {
+            Errors.Add("customergroup", "يجب ادخال مجموعة العميل");
+        }
+        if (string.IsNullOrEmpty(customer.CustomerName))
+        {
+            Errors.Add("customername", "يجب ادخال اسم العميل");
+
+        }
+        if (!string.IsNullOrEmpty(customer.Phone))
+        {
+            if (customer.Phone.Length > 11 || customer.Phone.Length < 11)
+            {
+                Errors.Add("customerphone", "يجب ادخال التليفون بشكل صحيح");
+            }
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+    async void addcustomergroup()
+    {
+        var result = await dialogService.OpenAsync<AddCustomerGroup>("اضافة مجموعة عميل", null, new DialogOptions() { Draggable = true, Resizable = false });
+        if (result != null)
+        {
+          await  updatecustomergroup();
+         await InvokeAsync(StateHasChanged);
+        }
+    }
+    async Task updatecustomergroup()
+    {
+        CustomerGroups = await unitofwork.CustomerGroups.GetAllAsync(i => i.UserId == UserId);
+     await  InvokeAsync(StateHasChanged);
+    }
+}

@@ -1,0 +1,18 @@
+﻿<div class="breadcrumb-nav">
+    <RadzenBreadCrumb>
+        @if (menuItems is not null)
+        {
+            <RadzenBreadCrumbItem Path="/dashboard" Text="الرئيسية" Icon="home" />
+            @foreach (var item in menuItems)
+            {
+                <RadzenBreadCrumbItem Path="@item.Path" Text="@item.Text" Icon="@item.Icon" />
+            }
+        }
+    </RadzenBreadCrumb>
+</div>
+
+@code {
+    [Parameter]
+    public List<MenuItem> menuItems { get; set; }
+
+}

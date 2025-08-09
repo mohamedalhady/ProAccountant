@@ -1,0 +1,440 @@
+﻿@inject NavigationManager NavigationManager
+@using Radzen
+@using Radzen.Blazor
+@rendermode InteractiveServer
+@inject IUnitOfWork unitOfWork
+<PageTitle>قائمة العناصر الشجرية</PageTitle>
+
+<div class="sidebar-fixed rtl ">
+
+
+
+             <RadzenPanelMenu Multiple="true" Style="width: 100%; height: 100vh; background: #f8f9fa; border-left: 1px solid #dee2e6; overflow-y: auto;">
+            @if (treeMenuItems.Any())
+            {
+                @foreach (var item in treeMenuItems)
+                {
+                    <div class="tree-item-container">
+                        @RenderTreeItem(item)
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="empty-state">
+                    <RadzenIcon Icon="folder_open" Style="font-size: 64px; color: #ccc;" />
+                    <h3>لا توجد عناصر</h3>
+                    <p>ابدأ بإضافة عنصر جديد للقائمة</p>
+                </div>
+            }
+            </RadzenPanelMenu>
+        </div>
+
+
+
+@code {
+    private List<MenuItem> allMenuItems = new List<MenuItem>();
+    private List<MenuItem> treeMenuItems = new List<MenuItem>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMenuItems();
+        BuildTree();
+    }
+    int countchildern = 0;
+    int old = 0;
+    private RenderFragment RenderTreeItem(MenuItem item) => builder =>
+    {
+        int count = 0;
+        var hasChildren = item.Children.Any();
+        var indentLevel = item.Level * 20;
+
+
+        // builder.OpenElement(0, "div");
+        // builder.AddAttribute(1, "class", "tree-item");
+        // builder.AddAttribute(2, "style", $"margin-right: {indentLevel}px;");
+
+        // العنصر الرئيسي
+        builder.OpenComponent<RadzenPanelMenuItem>(3);
+        builder.AddAttribute(4, "Icon",item.Icon);
+        builder.AddAttribute(5, "Text",item.Text);
+
+
+
+        // العناصر الفرعية
+
+        if (hasChildren && item.IsExpanded)
+        {
+            // builder.OpenElement(6, "div");
+            // builder.AddAttribute(7, "class", "tree-children");
+            old = countchildern;
+            countchildern = item.Children.Count;
+            
+            foreach (var child in item.Children)
+            { 
+                countchildern--;
+                builder.AddContent(8, RenderTreeItem(child));
+
+            }
+
+            // builder.CloseElement();
+        }else
+        {
+            builder.CloseComponent();
+        }
+        if (countchildern==0 && hasChildren)
+        {
+                
+                    builder.CloseComponent();
+                    builder.CloseComponent();
+        }
+     
+        
+        // builder.CloseElement();
+    };
+
+    private async Task LoadMenuItems()
+    {
+        allMenuItems = new List<MenuItem>();
+        var items = await unitOfWork.MenuItems.GetAllAsync();
+        allMenuItems = items.ToList();
+
+    }
+
+    private void BuildTree()
+    {
+        // إنشاء قاموس للوصول السريع للعناصر
+        var itemDict = allMenuItems.ToDictionary(x => x.Id);
+
+        // تنظيف العناصر الفرعية
+        foreach (var item in allMenuItems)
+        {
+            item.Children.Clear();
+            item.Level = 0;
+        }
+
+        // بناء الشجرة
+        foreach (var item in allMenuItems)
+        {
+            if (!string.IsNullOrEmpty(item.ParentId) && itemDict.ContainsKey(item.ParentId))
+            {
+                var parent = itemDict[item.ParentId];
+                parent.Children.Add(item);
+                item.Level = parent.Level + 1;
+            }
+        }
+
+        // تحديث مستويات العناصر الفرعية
+        // UpdateChildrenLevels(allMenuItems.Where(x => string.IsNullOrEmpty(x.ParentId)).ToList(), 0);
+
+        // الحصول على العناصر الجذرية فقط
+        treeMenuItems = allMenuItems.Where(x => string.IsNullOrEmpty(x.ParentId)).ToList();
+    }
+
+    private void UpdateChildrenLevels(List<MenuItem> items, int level)
+    {
+        foreach (var item in items)
+        {
+            item.Level = level;
+            if (item.Children.Any())
+            {
+                UpdateChildrenLevels(item.Children, level + 1);
+            }
+        }
+    }
+
+    private void ToggleExpand(MenuItem item)
+    {
+        item.IsExpanded = !item.IsExpanded;
+        StateHasChanged();
+    }
+
+    private void ExpandAll()
+    {
+        SetExpandedState(allMenuItems, true);
+        StateHasChanged();
+    }
+
+    private void CollapseAll()
+    {
+        SetExpandedState(allMenuItems, false);
+        StateHasChanged();
+    }
+
+    private void SetExpandedState(List<MenuItem> items, bool expanded)
+    {
+        foreach (var item in items)
+        {
+            item.IsExpanded = expanded;
+            if (item.Children.Any())
+            {
+                SetExpandedState(item.Children, expanded);
+            }
+        }
+    }
+
+    private void AddChild(MenuItem parent)
+    {
+        NavigationManager.NavigateTo($"/menu-item/create?parentId={parent.Id}");
+    }
+
+    private async Task ConfirmDelete(MenuItem item)
+    {
+        var hasChildren = item.Children.Any();
+        var message = hasChildren
+            ? $"هل أنت متأكد من حذف العنصر '{item.Text}' وجميع العناصر الفرعية التابعة له؟"
+            : $"هل أنت متأكد من حذف العنصر '{item.Text}'؟";
+
+        var result = await DialogService.Confirm(message, "تأكيد الحذف",
+            new ConfirmOptions { OkButtonText = "نعم", CancelButtonText = "إلغاء" });
+
+        if (result == true)
+        {
+            await DeleteMenuItem(item);
+        }
+    }
+
+    private async Task DeleteMenuItem(MenuItem item)
+    {
+        try
+        {
+
+            // حذف العنصر وجميع العناصر الفرعية
+            DeleteItemAndChildren(item);
+
+            // إعادة بناء الشجرة
+            await LoadMenuItems();
+            BuildTree();
+
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "تم بنجاح",
+                Detail = "تم حذف عنصر القائمة بنجاح",
+                Duration = 4000
+            });
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "خطأ",
+                Detail = "حدث خطأ أثناء حذف العنصر: " + ex.Message,
+                Duration = 4000
+            });
+        }
+    }
+
+    private void DeleteItemAndChildren(MenuItem item)
+    {
+        // حذف جميع العناصر الفرعية أولاً
+        foreach (var child in item.Children.ToList())
+        {
+            DeleteItemAndChildren(child);
+        }
+
+        // حذف العنصر نفسه
+        unitOfWork.MenuItems.DeleteOne(item);
+    }
+
+
+}
+
+@inject NavigationManager NavigationManager
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<style>
+    .menu-items-container {
+        padding: 20px;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+        .page-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: #666;
+            font-size: 16px;
+            margin: 0;
+        }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .tree-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .tree-container {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .tree-item {
+        margin-bottom: 2px;
+    }
+
+    .tree-item-content {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: all 0.2s;
+        min-height: 48px;
+    }
+
+        .tree-item-content:hover {
+            background: #f8f9fa;
+        }
+
+    .expand-button {
+        background: none;
+        border: none;
+        padding: 4px;
+        margin-left: 8px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .expand-button:hover {
+            background: #e9ecef;
+        }
+
+    .expand-spacer {
+        width: 24px;
+        height: 24px;
+        margin-left: 8px;
+    }
+
+    .item-icon {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f5;
+        border-radius: 6px;
+        margin-left: 12px;
+        font-size: 18px;
+    }
+
+    .item-text {
+        flex: 1;
+        font-weight: 500;
+        color: #333;
+        margin-left: 12px;
+    }
+
+    .item-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: 12px;
+    }
+
+    .item-path {
+        font-size: 12px;
+        color: #666;
+        background: #f8f9fa;
+        padding: 2px 8px;
+        border-radius: 4px;
+    }
+
+    .item-actions {
+        display: flex;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .tree-item-content:hover .item-actions {
+        opacity: 1;
+    }
+
+    .tree-children {
+        border-right: 2px solid #e9ecef;
+        margin-right: 12px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+
+        .empty-state h3 {
+            margin: 20px 0 10px 0;
+            color: #999;
+        }
+
+        .empty-state p {
+            margin: 0;
+            color: #bbb;
+        }
+
+    :deep(.rz-button.rz-primary) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    :deep(.rz-button.rz-primary:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    :deep(.rz-badge.rz-badge-primary) {
+        background-color: #667eea;
+    }
+
+    :deep(.rz-badge.rz-badge-secondary) {
+        background-color: #6c757d;
+    }
+
+    /* تخصيص شريط التمرير */
+    .tree-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .tree-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .tree-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+        .tree-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+</style>

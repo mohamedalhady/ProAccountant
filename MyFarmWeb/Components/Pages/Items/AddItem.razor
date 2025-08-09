@@ -1,0 +1,216 @@
+﻿@page "/add-item"
+@page "/add-item/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject Item item
+@inject NavigationManager nav
+@inject DialogService dialogService
+<PageTitle>اضافة صنف</PageTitle>
+<EditForm Model="item" FormName="add-item" class="form-control p-5 m-2 ">
+  
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var item in Errors)
+                {
+                    <li>@item.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="مجموعة الصنف" Component="farmname" Style="width: 100%; max-width: 150px;" />
+        <RadzenDropDown @ref="groupname" @bind-Value=item.ItemGroupId Data=@ItemGroups ValueProperty="@nameof(ItemGroup.ItemGroupId)" TextProperty="@nameof(ItemGroup.ItemGroupName)" Style="width: 100%; max-width: 400px;" Name="farmname"  />
+        <RadzenButton Icon="add" Click="additemgroup" @ref="btnpopup"></RadzenButton>
+    </RadzenRow>
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم الصنف" Component="itemname" Style="width: 100%; max-width: 150px;" />
+        <RadzenTextBox @bind-Value=item.ItemName  Style="width: 100%; max-width: 400px;" Name="itemname" />
+    </RadzenRow>
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="المخزن الافتراضى" Component="store" Style="width: 100%; max-width: 150px;" />
+        <RadzenDropDown @ref="storename" @bind-Value=item.StoreId Data=@Stores ValueProperty="@nameof(Store.StoreId)" TextProperty="@nameof(Store.StoreName)" Style="width: 100%; max-width: 400px;" Name="store" />
+        <RadzenButton Icon="add" Click="addstore" @ref="btnpopup"></RadzenButton>
+    </RadzenRow>
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="الوحده الافتراضية" Component="unit" Style="width: 100%; max-width: 150px;" />
+        <RadzenDropDown @ref="unitname" @bind-Value=item.UnitId    Data=@Units ValueProperty="@nameof(Unit.UnitId)" TextProperty="@nameof(Unit.UnitName)" Style="width: 100%; max-width: 400px;" Name="unit" />
+        <RadzenButton Icon="add" Click="addunit" @ref="btnpopup"></RadzenButton>
+    </RadzenRow>
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="سعر الشراء" Component="purchaseprice" Style="width: 100%; max-width: 150px;" />
+        <RadzenNumeric TValue="decimal" Min="0" Name="purchaseprice" TextAlign="Radzen.TextAlign.Center" @bind-Value="item.PurchasePrice" />
+    </RadzenRow>
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="سعر البيع" Component="salesprice" Style="width: 100%; max-width: 150px;" />
+        <RadzenNumeric TValue="decimal" Min="0" Name="salesprice" TextAlign="Radzen.TextAlign.Center" @bind-Value="item.SalesPrice" />
+    </RadzenRow>
+
+    <RadzenRow>
+
+        <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="NewItem" />
+        <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="InsertItem" />
+
+    </RadzenRow>
+
+
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenButton newbtn;
+    RadzenButton addbtn;
+    public IEnumerable<ItemGroup> ItemGroups { get; set; }
+    public IEnumerable<Store> Stores { get; set; }
+    public IEnumerable<Unit> Units { get; set; }
+    RadzenDropDown<int> groupname;
+    RadzenDropDown<int> storename;
+    RadzenDropDown<int> unitname;
+
+    public bool IsValid { get; set; }
+    RadzenButton btnpopup;
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await  service.GetUserId();
+        await updateitemgroup();
+        await  updateStores();
+        await  updateUnits();
+        if (Id > 0)
+        {
+            item = unitofwork.Items.GetById(Id);
+        }
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "5");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+
+    void NewItem()
+    {
+        item = new();
+        Id = 0;
+
+    }
+    void InsertItem()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Items.UpdateOne(item);
+            }
+            else
+            {
+                item.UserId = UserId;
+                unitofwork.Items.AddOne(item);
+                addbtn.Text = "تعديل";
+                Id = item.ItemId;
+            }
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+
+        }
+
+
+    }
+    bool validation()
+    {
+        Errors.Clear();
+        if (item.ItemGroupId == 0)
+        {
+            Errors.Add("itemgroup", "يجب ادخال مجموعة الصنف");
+        }
+        if (string.IsNullOrEmpty(item.ItemName))
+        {
+            Errors.Add("itemname", "يجب ادخال اسم الصنف");
+
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+    async void additemgroup()
+    {
+        Errors.Clear();
+        var result = await dialogService.OpenAsync<AddItemGroup>("اضافة مجموعة صنف", null, new DialogOptions() { Draggable = true, Resizable = false });
+        if (result != null)
+        {
+          await  updateitemgroup();
+            StateHasChanged();
+        }
+    }
+
+    async void addstore()
+    {
+        Errors.Clear();
+        var result = await dialogService.OpenAsync<Stores.AddStore>("اضافة مخزن", null, new DialogOptions() { Draggable = true, Resizable = false });
+        if (result != null)
+        {
+          await  updateStores();
+            StateHasChanged();
+        }
+    }
+
+    async void addunit()
+    {
+        Errors.Clear();
+        var result = await dialogService.OpenAsync<AddUnit>("اضافة وحدة قياس", null, new DialogOptions() { Draggable = true, Resizable = false,Width="800px" });
+        if (result != null)
+        {
+            await updateUnits();
+            StateHasChanged();
+        }
+    }
+    async Task updateitemgroup()
+    {
+        ItemGroups =await unitofwork.ItemGroups.GetAllAsync(i => i.UserId == UserId);
+     
+    }
+    async Task updateStores()
+    {
+        Stores = await unitofwork.Stores.GetAllAsync(g => g.UserId == UserId);
+        
+    }
+    async Task updateUnits()
+    {
+        Units = await unitofwork.Units.GetAllAsync(g => g.UserId == UserId);
+        
+    }
+}

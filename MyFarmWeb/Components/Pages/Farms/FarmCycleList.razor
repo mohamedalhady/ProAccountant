@@ -1,0 +1,110 @@
+﻿@page "/farm-cycle-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+@inject NotificationService NotificationService
+<h3 class="mt-4 mb-4 second-color">قائمة الدورات</h3>
+
+
+<RadzenDataGrid class="mb-5 p-2" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                    Data="@FarmList" TItem="NewFarm" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedFarm>
+
+        <HeaderTemplate>
+            <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة دوره جديده" Click="@add" />
+        </HeaderTemplate>
+        <Columns>
+
+
+            <RadzenDataGridColumn Property="@nameof(NewFarm.FarmId)" Title="اسم المزرعه" Width="140px">
+                <Template Context="data">
+                    @data.Farm?.FarmName
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(NewFarm.FeedVendor)" Title=" العلف" Width="140px">
+                <Template Context="data">
+                    @data.Vendor?.VendorName
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(NewFarm.ChickenVendor)" Title=" الكتاكيت" Width="140px">
+                <Template Context="data">
+                    @data.Vendor2?.VendorName
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(NewFarm.Count)" Title=" عدد الصوص" Width="140px">
+
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(NewFarm.DateEntry)" Title=" تاريخ الادخال" Width="140px" FormatString="yyyy-MM-dd">
+                <Template Context="data">
+                    @data.DateEntry.ToString("yyyy-MM-dd")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(NewFarm.SalesDate)" Title=" تاريخ البيع" Width="140px" FormatString="yyyy-MM-dd">
+                <Template Context="data">
+                    @data.SalesDate.ToString("yyyy-MM-dd")
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Title=" العمر " Width="140px">
+                <Template Context="data">
+                    @DateTime.Now.Date.Subtract(data.DateEntry).Days
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Property="@nameof(NewFarm.Status)" Title="حالة الاكتمال" Width="140px">
+                <Template Context="data">
+                    <RadzenCheckBox @bind-Value="data.Status" Disabled="true" />
+
+
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Filterable="false">
+                <Template Context="data">
+                    <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Filterable="false">
+                <Template Context="data">
+                    <RadzenButton Click="@(args => Close(data))" Icon="close"></RadzenButton>
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+
+
+
+@code {
+    public IEnumerable<NewFarm> FarmList { get; set; }
+    IList<NewFarm> selectedFarm;
+    public string UserId { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+        FarmList = new List<NewFarm>();
+        UserId = await service.GetUserId();
+        FarmList = await unitofwork.NewFarm.GetAllAsync(f => f.UserId == UserId, "Farm", "Vendor","Vendor2");
+    }
+    void Edit (NewFarm farm)
+    {
+        if (farm.Status == true)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "لايمكن التعديل فى دوره مكتمله", "", 3000);
+            return;
+        }
+        nav.NavigateTo($"/add-new-farm/{farm.NewFarmId}");
+    }
+
+    void add()
+    {
+        nav.NavigateTo("/add-new-farm");
+    }
+    void Close(NewFarm farm)
+    {
+        farm.Status = true;
+        unitofwork.NewFarm.UpdateOne(farm);
+    }
+}

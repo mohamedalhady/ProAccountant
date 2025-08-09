@@ -1,0 +1,217 @@
+﻿@page "/Account/Register"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Models.Models
+@using MyFarmWeb.Data
+@using MyFarmWeb.Repository.Base
+
+
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IUserStore<ApplicationUser> UserStore
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+@inject IUnitOfWork unitofwork 
+
+
+<PageTitle>Register</PageTitle>
+
+<h3 class="me-auto mb-3 ms-5 mt-5 fw-bold">تسجيل حساب جديد </h3>
+
+<div class="row">
+    <div class="col-md-4 me-auto ">
+        <StatusMessage Message="@Message" />
+        <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
+            <DataAnnotationsValidator />
+
+   
+           @*  <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.UserName" class="form-control" autocomplete="username" aria-required="true" placeholder="username" />
+                <label for="username">اسم المستخدم</label>
+                <ValidationMessage For="() => Input.UserName" class="text-danger" />
+            </div> *@
+
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.Email" class="form-control" autocomplete="email" aria-required="true" placeholder="name@example.com" />
+                <label for="email">البريد الالكتروني</label>
+                <ValidationMessage For="() => Input.Email" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.PhoneNumber" class="form-control" autocomplete="phonenumber" aria-required="true" placeholder="رقم التليفون" />
+                <label for="phonenumber">رقم التليفون</label>
+                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+            </div>
+            <label for="governat" class="mb-1">المحافظة</label>
+            <InputSelect class="form-select mb-3 form-floating form-control" @bind-Value="Input.GovernorateId" aria-required="true" autocomplete="governat" placeholder="المحافظة">
+                
+                
+                @if (Governorates is null)
+                {
+                    return;
+                }
+                else
+                {
+                    @foreach (var item in Governorates)
+                    {
+                        <option value="@item.GovernorateId">@item.GovernorateName</option>
+                    }
+                }
+               
+            </InputSelect>
+            <div class="form-floating mb-3">
+                <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
+                <label for="password">الرقم السري</label>
+                <ValidationMessage For="() => Input.Password" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText type="password" @bind-Value="Input.ConfirmPassword" class="form-control " autocomplete="new-password" aria-required="true" placeholder="password" />
+                <label for="confirm-password">تاكيد الرقم السري</label>
+                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+            </div>
+         
+            <button type="submit" class="w-100 btn btn-lg bg-main-color" >تسجيل</button>
+           
+        </EditForm>
+     
+
+    </div>
+ 
+</div>
+
+@code {
+   
+    RadzenDropDown<string> radzenDropDown;
+    private IEnumerable<IdentityError>? identityErrors;
+    private IEnumerable<Governorate> Governorates { get; set; }
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+    int value = 1;
+    string searchTextStatus;
+    string searchText = "";
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        Governorates =await unitofwork.Governorates.GetAllAsync();
+
+
+    }
+
+
+
+    public async Task RegisterUser(EditContext editContext)
+    {
+        var user = CreateUser();
+
+        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+        var emailStore = GetEmailStore();
+        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+        user.UserName = Input.Email;
+        user.PhoneNumber = Input.PhoneNumber;
+        user.GovernorateId = Input.GovernorateId;
+        user.EmailConfirmed = true;
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            identityErrors = result.Errors;
+            return;
+        }
+
+        Logger.LogInformation("User created a new account with password.");
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
+
+        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+     
+        // if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        // {
+        //     RedirectManager.RedirectTo(
+        //         "Account/RegisterConfirmation",
+        //         new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
+        // }
+
+        // await SignInManager.SignInAsync(user, isPersistent: false);
+        // RedirectManager.RedirectTo(ReturnUrl);
+      
+    }
+
+    private ApplicationUser CreateUser()
+    {
+        try
+        {
+            return Activator.CreateInstance<ApplicationUser>();
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
+                $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor.");
+        }
+    }
+
+    private IUserEmailStore<ApplicationUser> GetEmailStore()
+    {
+
+        if (!UserManager.SupportsUserEmail)
+        {
+            throw new NotSupportedException("The default UI requires a user store with email support.");
+        }
+        return (IUserEmailStore<ApplicationUser>)UserStore;
+    }
+
+    IEnumerable<Governorate> GetGovernorates()
+    {
+     
+        Governorates = unitofwork.Governorates.GetAll();
+        return Governorates;
+    }
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        [Display(Name = "البريد الالكتروني")]
+        public string Email { get; set; } = "";
+
+
+        // [Required]
+     
+        // [Display(Name = "اسم المستخدم")]
+        // public string UserName { get; set; } = "";
+
+
+        [Required]
+        [Phone]
+        [Display(Name = "رقم التليفون")]
+        public string PhoneNumber { get; set; } = "";
+
+        [Required]
+    
+        [Display(Name = "المحافظة")]
+        public int GovernorateId { get; set; } 
+        [Required]
+        [StringLength(100, ErrorMessage = "The {0} يجب الايقل عن {2} ولا يزيد عن {1} احرف طويله.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        [Display(Name = "الرقم السري")]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Display(Name = "تاكيد ارقم السري")]
+        [Compare("Password", ErrorMessage = "الرقم السري وتاكيد الرقم السري غير مطابقين")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

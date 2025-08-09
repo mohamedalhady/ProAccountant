@@ -1,0 +1,233 @@
+﻿
+@page "/dashboard"
+@using Radzen.Blazor
+@inject Service service
+@inject NavigationManager nav
+@inject IJSRuntime JS
+@inject LayoutState layoutState
+<PageTitle>لوحة التحكم الرئيسية</PageTitle>
+
+<div class="dashboard-container">
+    <RadzenRow Gap="2rem">
+        <!-- إحصائيات سريعة -->
+        <RadzenColumn Size="12">
+            <RadzenText TextStyle="TextStyle.H4" Style="margin-bottom: 1.5rem; color: #333; font-weight: 600;">
+                الإحصائيات السريعة
+            </RadzenText>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="stat-card" Style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; height: 140px;">
+                <RadzenIcon Icon="shopping_cart" Style="font-size: 48px; margin-bottom: 10px;" />
+                <RadzenText TextStyle="TextStyle.H6">إجمالي المبيعات</RadzenText>
+                <RadzenText TextStyle="TextStyle.H4" Style="font-weight: 700;">250,000 ر.س</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="stat-card" Style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; text-align: center; height: 140px;">
+                <RadzenIcon Icon="inventory" Style="font-size: 48px; margin-bottom: 10px;" />
+                <RadzenText TextStyle="TextStyle.H6">المنتجات المتاحة</RadzenText>
+                <RadzenText TextStyle="TextStyle.H4" Style="font-weight: 700;">1,245</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="stat-card" Style="background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%); color: white; text-align: center; height: 140px;">
+                <RadzenIcon Icon="people" Style="font-size: 48px; margin-bottom: 10px;" />
+                <RadzenText TextStyle="TextStyle.H6">العملاء النشطين</RadzenText>
+                <RadzenText TextStyle="TextStyle.H4" Style="font-weight: 700;">89</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard Class="stat-card" Style="background: linear-gradient(135deg, #dc3545 0%, #e91e63 100%); color: white; text-align: center; height: 140px;">
+                <RadzenIcon Icon="warning" Style="font-size: 48px; margin-bottom: 10px;" />
+                <RadzenText TextStyle="TextStyle.H6">تنبيهات المخزون</RadzenText>
+                <RadzenText TextStyle="TextStyle.H4" Style="font-weight: 700;">12</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <!-- الرسوم البيانية والتقارير -->
+    <RadzenRow Gap="2rem" Style="margin-top: 3rem;">
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenCard Style="height: 400px;">
+                <RadzenText TextStyle="TextStyle.H5" Style="margin-bottom: 1.5rem; font-weight: 600;">
+                    مبيعات الشهر الحالي
+                </RadzenText>
+                <RadzenChart Style="height: 320px;">
+                    <RadzenColumnSeries Data="@salesData" CategoryProperty="Month" ValueProperty="Sales" Title="المبيعات" Fill="#667eea" />
+                </RadzenChart>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard Style="height: 400px;">
+                <RadzenText TextStyle="TextStyle.H5" Style="margin-bottom: 1.5rem; font-weight: 600;">
+                    المهام المعلقة
+                </RadzenText>
+                <div style="max-height: 320px; overflow-y: auto;">
+                    <RadzenDataList Data="@pendingTasks" TItem="TaskItem">
+                        <Template Context="task">
+                            <div class="task-item">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <RadzenIcon Icon="task_alt" Style="color: #667eea;" />
+                                    <div style="flex: 1;">
+                                        <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin-bottom: 4px;">
+                                            @task.Title
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: #666;">
+                                            موعد الانتهاء: @task.DueDate.ToString("dd/MM/yyyy")
+                                        </RadzenText>
+                                    </div>
+                                </div>
+                            </div>
+                        </Template>
+                    </RadzenDataList>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <!-- محتوى إضافي لاختبار التمرير -->
+    <RadzenRow Gap="2rem" Style="margin-top: 3rem;">
+        <RadzenColumn Size="12">
+            <RadzenCard>
+                <RadzenText TextStyle="TextStyle.H5" Style="margin-bottom: 1.5rem; font-weight: 600;">
+                    تقارير مفصلة
+                </RadzenText>
+                <div style="height: 600px; background: linear-gradient(45deg, #f8f9fa 25%, transparent 25%), linear-gradient(-45deg, #f8f9fa 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f8f9fa 75%), linear-gradient(-45deg, transparent 75%, #f8f9fa 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+                    <div style="text-align: center; color: #666;">
+                        <RadzenIcon Icon="analytics" Style="font-size: 64px; margin-bottom: 20px;" />
+                        <RadzenText TextStyle="TextStyle.H6">محتوى التقارير المفصلة</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1">هذا المحتوى لاختبار التمرير في الصفحة</RadzenText>
+                    </div>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <!-- المزيد من المحتوى -->
+    <RadzenRow Gap="2rem" Style="margin-top: 3rem;">
+        @for (int i = 1; i <= 6; i++)
+        {
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenCard Style="height: 200px;">
+                    <RadzenText TextStyle="TextStyle.H6" Style="margin-bottom: 1rem;">
+                        قسم رقم @i
+                    </RadzenText>
+                    <div style="height: 120px; background: #f8f9fa; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                        <RadzenText TextStyle="TextStyle.Body2" Style="color: #666;">
+                            محتوى القسم @i
+                        </RadzenText>
+                    </div>
+                </RadzenCard>
+            </RadzenColumn>
+        }
+    </RadzenRow>
+</div>
+
+@code {
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        layoutState.SetMenuItems(new List<MenuItem>());
+   
+    }
+
+
+    private List<SalesData> salesData = new List<SalesData>
+    {
+        new SalesData { Month = "يناير", Sales = 45000 },
+        new SalesData { Month = "فبراير", Sales = 52000 },
+        new SalesData { Month = "مارس", Sales = 48000 },
+        new SalesData { Month = "أبريل", Sales = 61000 },
+        new SalesData { Month = "مايو", Sales = 55000 },
+        new SalesData { Month = "يونيو", Sales = 67000 }
+    };
+
+    private List<TaskItem> pendingTasks = new List<TaskItem>
+    {
+        new TaskItem { Title = "مراجعة فواتير الموردين", DueDate = DateTime.Now.AddDays(2) },
+        new TaskItem { Title = "إعداد تقرير المبيعات الشهري", DueDate = DateTime.Now.AddDays(5) },
+        new TaskItem { Title = "جرد المخزون", DueDate = DateTime.Now.AddDays(7) },
+        new TaskItem { Title = "متابعة المدفوعات المتأخرة", DueDate = DateTime.Now.AddDays(3) },
+        new TaskItem { Title = "تحديث بيانات العملاء", DueDate = DateTime.Now.AddDays(1) },
+        new TaskItem { Title = "مراجعة الحسابات الشهرية", DueDate = DateTime.Now.AddDays(4) }
+    };
+
+    public class SalesData
+    {
+        public string Month { get; set; }
+        public decimal Sales { get; set; }
+    }
+
+    public class TaskItem
+    {
+        public string Title { get; set; }
+        public DateTime DueDate { get; set; }
+    }
+}
+
+<style>
+    .dashboard-container {
+        padding: 0;
+    }
+
+    .rz-card {
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: none;
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+
+        .rz-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+
+    .stat-card {
+        position: relative;
+        overflow: hidden;
+    }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            transform: rotate(45deg);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover::before {
+            transform: rotate(45deg) scale(1.1);
+        }
+
+    .task-item {
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+        transition: all 0.2s ease;
+    }
+
+        .task-item:hover {
+            background: #f8f9fa;
+            padding-right: 8px;
+            border-radius: 6px;
+        }
+
+        .task-item:last-child {
+            border-bottom: none;
+        }
+</style>

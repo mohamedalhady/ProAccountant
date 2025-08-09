@@ -1,0 +1,206 @@
+﻿@page "/datagrid-layout/{UserId}/{GridId}/{Setting}/{Id:int}/{IsExpand:bool}/{ColumnFrozenSetting}"
+@page "/datagrid-layout"
+@using MyFarmWeb.Repository.special.Class
+@inject SetDataGridSetting dgsetting
+@using Radzen.Blazor.Rendering
+@rendermode InteractiveServer
+@inject DataGridSetting datagridsetting
+@inject Radzen.DialogService dialogService
+<RadzenCard Style="margin-bottom:30px;">
+    <RadzenAlert Visible=@PublicError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text=@ErrorMessage/>
+
+    <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="20" JustifyContent="JustifyContent.Center">
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenButton Text="انشاء" Icon="add" Click="CreateLayout"></RadzenButton>
+            <RadzenButton Text="تعديل" Click="Edit" Icon="edit"></RadzenButton>
+            <RadzenButton Text="اختيار" Click="Excute" Icon="select"></RadzenButton>
+            <RadzenButton Text="حذف" Click="Delete" Icon="delete" ButtonStyle="ButtonStyle.Danger"></RadzenButton>
+        </RadzenStack>
+     
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenLabel>وصف المخطط</RadzenLabel>
+            <RadzenTextBox @bind-Value="datagridsetting.Name"  Style="margin-right:20px;"></RadzenTextBox>
+            <RadzenAlert Visible=@LayoutNameError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال اسم المخطط" />
+            <RadzenLabel>الافتراضى</RadzenLabel>
+             <RadzenCheckBox TValue="bool" @bind-Value=datagridsetting.IsDefault/>
+        </RadzenStack>
+    </RadzenStack>
+
+</RadzenCard>
+<RadzenDataGrid RowSelect="Select" @ref=Grid  Style="width:800px;height:300px;cursor:pointer;" class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@Layout" TItem="DataGridSetting" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedgroup>
+    <Columns>
+            <RadzenDataGridColumn Property="@nameof(DataGridSetting.Id)" Title="كود المخطط" Width="160px"/>
+            <RadzenDataGridColumn Property="@nameof(DataGridSetting.Name)" Title="وصف المخطط" Width="160px"/>
+            <RadzenDataGridColumn Property="@nameof(DataGridSetting.IsDefault)" Title="الوضع الافتراضى" Width="160px">
+                <Template Context="data">
+                    <RadzenCheckBox @bind-Value="data.IsDefault" Disabled="true" />
+
+
+                </Template>
+            </RadzenDataGridColumn>
+
+
+     
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    [Parameter]
+    public string ColumnFrozenSetting { get; set; }
+    [Parameter]
+    public bool IsExpand { get; set; }
+    [Parameter]
+    public int Id { get; set; } 
+    bool PublicError = false;
+    public string ErrorMessage { get; set; }
+    bool LayoutNameError = false;
+    [Parameter]
+    public string Setting { get; set; }
+    [Parameter]
+    public string UserId { get; set; }
+    [Parameter]
+    public string GridId { get; set; }
+    public IEnumerable<DataGridSetting> Layout { get; set; }
+    IList<DataGridSetting> selectedgroup;
+    RadzenDataGrid<DataGridSetting> Grid;
+    public DataGridSetting LayoutSelection { get; set; } = new();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            LayoutSelection = dgsetting.GetLayoutById(UserId, GridId, Id);
+            if (LayoutSelection != null)
+            {
+                await Grid.SelectRow(LayoutSelection,true);
+            }
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        Layout = dgsetting.GetAllLayout(UserId, GridId);
+
+    }
+
+    async void Edit()
+    {
+        SetError();
+        if (datagridsetting.Id == 0)
+        {
+            PublicError = true;
+            ErrorMessage = "يجب تحديد مخطط";
+            return;
+        }
+        if (string.IsNullOrEmpty(datagridsetting.Name))
+        {
+            LayoutNameError = true;
+            return;
+        }
+        var result = await  dialogService.Confirm("هل تريد التعديل على المخطط", "تعديل مخطط", new ConfirmOptions()
+            {
+                OkButtonText = "نعم",
+                CancelButtonText = "لا"
+            });
+        if (result != null)
+        {
+            if (result.Value == true)
+            {
+                datagridsetting.IsExpand = IsExpand;
+                datagridsetting.UserId = UserId;
+                datagridsetting.GridId = GridId;
+                datagridsetting.Setting = Setting;
+                datagridsetting.ColumnsFrozen = ColumnFrozenSetting;
+                await dgsetting.UpdateStateAsync(datagridsetting);
+
+                datagridsetting = new();
+
+                dialogService.Close(null);
+            }
+        }
+
+
+    }
+    void Select(DataGridSetting grid)
+    {
+        SetError();
+        datagridsetting.IsExpand = grid.IsExpand;
+        datagridsetting.IsDefault = grid.IsDefault;
+        datagridsetting.Name = grid.Name;
+        datagridsetting.UserId = grid.UserId;
+        datagridsetting.GridId = grid.GridId;
+        datagridsetting.Id = grid.Id;
+    }
+    async void CreateLayout()
+    {
+        SetError();
+        if  (string.IsNullOrEmpty(datagridsetting.Name))
+        {
+            LayoutNameError = true;
+            return;
+        }
+        if (string.IsNullOrEmpty(datagridsetting.Name.Trim()))
+        {
+            LayoutNameError = true;
+            return;
+        }
+        datagridsetting.Id = 0;
+        datagridsetting.IsExpand = IsExpand;
+        datagridsetting.UserId = UserId;
+        datagridsetting.GridId = GridId;
+        datagridsetting.Setting = Setting;
+        datagridsetting.ColumnsFrozen = ColumnFrozenSetting;
+        await dgsetting.SaveStateAsync(datagridsetting);
+
+        datagridsetting = new();
+
+        dialogService.Close(null);
+    }
+    async void Excute()
+    {
+        SetError();
+        if (datagridsetting.Id == 0)
+        {
+            PublicError = true;
+            ErrorMessage = "يجب تحديد مخطط";
+            return;
+        }
+        var result =await dgsetting.LoadStateAsync(datagridsetting.Id, datagridsetting.UserId, datagridsetting.GridId);
+        
+
+        dialogService.Close(result);
+    }
+    void SetError()
+    {
+        PublicError = false;
+        LayoutNameError = false;
+    }
+    async void  Delete()
+    {
+        SetError();
+        if (datagridsetting.Id == 0)
+        {
+            PublicError = true;
+            ErrorMessage = "يجب تحديد مخطط";
+            return;
+        }
+
+        var result = await dialogService.Confirm("هل تريد حذف المخطط", "حذف مخطط", new ConfirmOptions()
+            {
+                OkButtonText = "نعم",
+                CancelButtonText = "لا"
+            });
+        if (result != null)
+        {
+            if (result.Value == true)
+            {
+              
+                dgsetting.DeleteLayout(UserId,GridId,datagridsetting.Id);
+                Layout = dgsetting.GetAllLayout(UserId, GridId);
+                datagridsetting = new();
+                StateHasChanged();
+              
+            }
+        }
+    }
+}

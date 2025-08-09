@@ -1,0 +1,1350 @@
+﻿@page "/sales-reverse"
+@page "/sales-reverse/{Id:int}"
+@layout Layout.EmptyLayout
+@using Microsoft.EntityFrameworkCore
+@rendermode InteractiveServer
+@inject IUnitOfWork unitofwork
+@inject Service service
+@inject SalesReverseHeader newsalesinvoiceheader
+@inject CustomerTransaction customertransaction
+@inject MyFarmWeb.Data.MyFarmContext ContextDb
+@inject IService jsservice
+@inject IJSRuntime jsrun
+@inject NavigationManager nv
+@inject DialogService dialogservice
+@using MyFarmWeb.Repository.Enums
+<title>مرتجع مبيعات</title>
+@* <h1 class="mb-4 second-color">مرتجع مبيعات</h1> *@
+<RadzenAlert @ref="SaveAlert" Visible=@SaveSucces AllowClose="true" AlertStyle="@Alertstyle" Size="AlertSize.Small" Text=@SaveMessage />
+<RadzenCard class="rz-my-0">
+
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="20" JustifyContent="JustifyContent.Center">
+            <RadzenButton Text="انشاء بمرجع" Icon="add" Click="CreateByReference"></RadzenButton>
+            <RadzenLabel>رقم الفاتورة</RadzenLabel>
+            <RadzenNumeric TValue="int" @ref=RefernceNumber @bind-Value="Reference" Style="margin-right:20px;" TextAlign="Radzen.TextAlign.Center"></RadzenNumeric>
+        </RadzenStack>
+
+    </RadzenStack>
+</RadzenCard>
+<RadzenCard class="rz-my-1">
+
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="20" JustifyContent="JustifyContent.Center">
+            <RadzenButton @ref="NewBtn" Text="جديد" Icon="add" Click="NewInvoice"></RadzenButton>
+            <RadzenButton @ref="SaveBtn" Text="حفظ" Icon="save" Disabled=IsSaveBtnDisabled Click="SaveInvoice"></RadzenButton>
+            <RadzenButton Text="المبيعات" Click="Invoices"></RadzenButton>
+        </RadzenStack>
+
+    </RadzenStack>
+</RadzenCard>
+<RadzenCard class="rz-my-1">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Wrap="FlexWrap.Wrap">
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenLabel>رقم المرتجع</RadzenLabel>
+            <RadzenNumeric TValue="int" ReadOnly="true" @bind-Value="newsalesinvoiceheader.SalesInvoiceId" Style="margin-right:20px;" TextAlign="Radzen.TextAlign.Center"></RadzenNumeric>
+            <RadzenLabel Component="DropDownDataGridBindValue">العميل</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+             
+
+                <div @onkeydown="HandleKeydownCustomer">
+
+                   
+                    <RadzenDropDownDataGrid @ref="customercontrol" FocusFilterOnPopup="true" ShowSearch="false" Change="customerchange" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                            @bind-Value=@newsalesinvoiceheader.CustomerId Data=@Customers AllowFilteringByAllStringColumns="true"
+                                            TextProperty="@nameof(Customer.CustomerName)" ValueProperty="@nameof(Customer.CustomerId)" AllowFiltering="true" Name="DropDownDatacustomer">
+                        <Columns>
+                            <RadzenDropDownDataGridColumn Property="@nameof(Customer.CustomerId)" Title="كود العميل" />
+                            <RadzenDropDownDataGridColumn Property="@nameof(Customer.CustomerName)" Title="اسم العميل" Width="100%" />
+                        </Columns>
+                    </RadzenDropDownDataGrid>
+                      <RadzenAlert Visible=@CustomerError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال العميل" />
+
+                </div>
+            </RadzenStack>
+
+
+            <RadzenLabel>التاريخ</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical">
+                <RadzenDatePicker @ref="Datecontrol" TValue="DateTime"  Change="DateChange" @bind-Value="newsalesinvoiceheader.SalesInvoiceDate" DateFormat="yyyy-MM-dd" style="text-align:center;"></RadzenDatePicker>
+                <RadzenAlert Visible=@DateError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text=@DateErrorMessage />
+            </RadzenStack>
+            @*            <RadzenLabel>خصم</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical">
+            <RadzenNumeric TValue="decimal" Min="0" Change="SetAmount" Format="0,0.000" Style="display: block;" Name="total" @bind-Value=newsalesinvoiceheader.TotalDiscount TextAlign="Radzen.TextAlign.Center" />
+            </RadzenStack>
+            *@            <RadzenLabel>اجمالى الخصم</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical">
+                <RadzenNumeric TValue="decimal" Style="display: block;" Format="N3" ReadOnly="true" Name="total" @bind-Value=TotalDiscount TextAlign="Radzen.TextAlign.Center" />
+                <RadzenAlert Visible=@TotalDiscountError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="الخصم اكبر من قيمة الفاتورة" />
+
+            </RadzenStack>
+
+
+        </RadzenStack>
+    </RadzenStack>
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="12px" Style="margin-top:15px;">
+        <RadzenLabel>الاجمالى</RadzenLabel>
+        <RadzenNumeric TValue="decimal" ReadOnly="true" Name="total" Format="N3" @bind-Value=newsalesinvoiceheader.Total TextAlign="Radzen.TextAlign.Center" Style="display: block;margin-right:20px;width:25%;" />
+        <RadzenLabel>الصافي</RadzenLabel>
+        <RadzenNumeric TValue="decimal" ReadOnly="true" Name="total" Format="N3" @bind-Value=newsalesinvoiceheader.NetTotal TextAlign="Radzen.TextAlign.Center" Style="display: block;margin-right:20px;width:25%;" />
+        <RadzenLabel>اجمالى الكمية</RadzenLabel>
+        <RadzenNumeric TValue="decimal" ReadOnly="true" Name="quantitytotal" Format="N3" @bind-Value=TotalQuantity TextAlign="Radzen.TextAlign.Center" Style="display: block;margin-right:20px;width:25%;" />
+
+        <RadzenLabel>ملاحظات</RadzenLabel>
+        <RadzenTextBox @bind-Value="newsalesinvoiceheader.Note" Style="display: block;width:50%;margin-right:15px" />
+    </RadzenStack>
+</RadzenCard>
+@* <style>
+    .rz-grid-table {
+        width: max-content;
+    }
+</style> *@
+
+
+@* <RadzenCard Variant="Variant.Outlined" class="rz-my-4">
+
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+        <div>Edit Mode:</div>
+        <RadzenSelectBar @bind-Value="@editMode" TextProperty="Text" ValueProperty="Value"
+                         Data="@(Enum.GetValues(typeof(DataGridEditMode)).Cast<DataGridEditMode>().Select(t => new { Text = $"{t}", Value = t }))" Size="ButtonSize.Small"
+                         Disabled="@(editMode == DataGridEditMode.Multiple && ordersToInsert.Count() > 1)" />
+    </RadzenStack>
+</RadzenCard> *@
+
+
+
+<RadzenAlert Visible=@ItemsCountError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text=@ItemCountErrorMessage />
+
+<RadzenDataGrid @ref="ordersGrid" Style="width:100%;height:400px;" ColumnWidth="200px" AllowAlternatingRows="true" AllowFiltering="false" AllowPaging="false" AllowSorting="false" EditMode="@editMode"
+                Data="@salesitemToSave" TItem="SalesReverseDetails" RowUpdate="@OnUpdateRow" RowCreate="@OnCreateRow" Sort="@Reset" Page="@Reset" Filter="@Reset" EmptyText="لايوجد اي بيانات" AllowColumnPicking="true" ColumnsShowingText="اظهار الاعمدة"
+                GridLines="DataGridGridLines.Both">
+    @*   <HeaderTemplate>
+    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة سطر جديد" Click="@InsertRow" Disabled="@(editMode == DataGridEditMode.Single && ordersToInsert.Count() > 0)" />
+    </HeaderTemplate> *@
+    <Columns>
+
+        <RadzenDataGridColumn Title="كود الصنف" Property="@nameof(Item.ItemId)" TextAlign="Radzen.TextAlign.Center">
+            @*        <Template Context="order">
+            @order.Item?.ItemName
+            </Template> *@
+            <EditTemplate Context="order">
+                <RadzenNumeric TValue="int" @ref=ItemIdControl Change="()=> Getprice(order)" Min="0" Style=@(ItemIdError == true? "margin-top:40px; display: block;text-align:center;" :"margin-top:0px; display: block;text-align:center;") Name="Item" @bind-Value=order.ItemId TextAlign="Radzen.TextAlign.Center" />
+                <RadzenAlert Visible=@ItemIdError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="كود الصنف غير موجود" />
+
+            </EditTemplate>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Title="الصنف" Width="300px" Property="@nameof(Item.ItemId)" TextAlign="Radzen.TextAlign.Center">
+            <Template Context="order">
+                @order.Item?.ItemName
+            </Template>
+            <EditTemplate Context="order">
+                <RadzenDropDown TValue="int" @ref="ItemNameControl" SelectedItemChanged="args => Getprice(args)" Style=@(ItemError == true? "margin-top:40px; display: block;text-align:center;" :"margin-top:0px; display: block;text-align:center;") Name="Item" Data=@Items @bind-Value=order.ItemId TextProperty="@nameof(Item.ItemName)" ValueProperty="@nameof(Item.ItemId)" AllowFiltering="true" />
+                <RadzenAlert Visible=@ItemError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال الصنف" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Title="المخزن" Property="@nameof(SalesReverseDetails.StoreId)" TextAlign="Radzen.TextAlign.Center">
+            <Template Context="order">
+                @order.Store?.StoreName
+            </Template>
+            <EditTemplate Context="order">
+                <RadzenDropDown TValue="int" @ref=ItemStoreControl Style=@(StoreError == true? "margin-top:40px; display: block;text-align:center;" :"margin-top:0px; display: block;text-align:center;") Name="Store" Data=@Stores @bind-Value=order.StoreId TextProperty="@nameof(Store.StoreName)" ValueProperty="@nameof(Store.StoreId)" AllowFiltering="true" />
+                <RadzenAlert Visible=@StoreError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال المخزن" />
+            </EditTemplate>
+
+        </RadzenDataGridColumn>
+
+
+
+
+        <RadzenDataGridColumn Property="@nameof(SalesReverseDetails.Quantity)" Title="الكمية" TextAlign="Radzen.TextAlign.Center">
+            <EditTemplate Context="order">
+                <RadzenNumeric TValue="decimal" @ref=quantitycontrol Min="0"  Change="SetAmount" Style=@(QuantityError == true? "margin-top:40px; display: block;" :"margin-top:0px;display: block;") Name="Quantity" @bind-Value=order.Quantity TextAlign="Radzen.TextAlign.Center" />
+                <RadzenAlert Visible=@QuantityError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال الكمية" />
+                @*                 <RadzenAlert Visible=@QuantityBalanceError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text=@($"الرصيد المتاح{ItemBalance} غير كافى") />
+                *@
+            </EditTemplate>
+            <FooterTemplate>
+                @(ordersToInsert.Count > 0 ? salesitemToSave.Sum(i => i.Quantity) + ordersToInsert[0].Quantity : salesitemToSave.Sum(i => i.Quantity))
+            </FooterTemplate>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Title="الوحده"  Property="@nameof(SalesReverseDetails.UnitId)" TextAlign="Radzen.TextAlign.Center">
+            <Template Context="order">
+                @order.Unit?.UnitName
+            </Template>
+            <EditTemplate Context="order">
+                <RadzenDropDown TValue="int" @ref=ItemUnitControl Change="() => UnitConvert(order)" Style=@(UnitError == true? "margin-top:40px; display: block;text-align:center;" :"margin-top:0px; display: block;text-align:center;") Name="Unit" Data=@Units @bind-Value=order.UnitId TextProperty="@nameof(Unit.UnitName)" ValueProperty="@nameof(Unit.UnitId)" AllowFiltering="true" />
+                <RadzenAlert Visible=@UnitError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال الوحدة" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(SalesReverseDetails.Price)" Title="السعر" TextAlign="Radzen.TextAlign.Center">
+            <EditTemplate Context="order">
+                <RadzenNumeric TValue="decimal" Min="0" @ref=pricecontrol Format="N3" Change="SetAmount" Style=@(PriceError == true? "margin-top:40px; display: block;" :"margin-top:0px;display:") Name="Price" @bind-Value=order.Price TextAlign="Radzen.TextAlign.Center" />
+                <RadzenAlert Visible=@PriceError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال السعر" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+
+
+        <RadzenDataGridColumn Property="@nameof(SalesReverseDetails.Amount)" Title="القيمة" TextAlign="Radzen.TextAlign.Center">
+            <EditTemplate Context="order">
+                <RadzenNumeric TValue="decimal" Format="N3" ShowUpDown="false" ReadOnly="true" @ref=amountcontrol Style="display: block;width:150px" Name="Amount" @bind-Value=order.Amount TextAlign="Radzen.TextAlign.Center" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(SalesReverseDetails.ItemDiscount)" Title="خصم" TextAlign="Radzen.TextAlign.Center">
+            <EditTemplate Context="order">
+                <RadzenNumeric TValue="decimal" Min="0" @ref=Discountcontrol Format="N3" Change="SetAmount" Style=@(DiscountError == true? "margin-top:40px; display: block;" :"margin-top:0px;display:") Name="discount" @bind-Value=order.ItemDiscount TextAlign="Radzen.TextAlign.Center" />
+                <RadzenAlert Visible=@DiscountError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="الخصم اكبر من قيمة الصنف" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(SalesReverseDetails.NetAmount)" Title="الصافى" TextAlign="Radzen.TextAlign.Center">
+            <EditTemplate Context="order">
+                <RadzenNumeric TValue="decimal" Format="N3" ShowUpDown="false" ReadOnly="true" Style="display: block;width:150px" Name="Amount" @bind-Value=order.NetAmount TextAlign="Radzen.TextAlign.Center" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(SalesReverseDetails.ItemNote)" Width="300px" Title="ملاحظات" TextAlign="Radzen.TextAlign.Center">
+            <EditTemplate Context="order">
+                <RadzenTextBox  Style="display: block;text-align:center;" Name="itemnote" @bind-Value="order.ItemNote" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Context="order" Filterable="false" Sortable="false" TextAlign="Radzen.TextAlign.Right" Frozen="true" FrozenPosition="FrozenColumnPosition.Right">
+            <Template Context="order">
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@(args => EditRow(order))" @onclick:stopPropagation="true">
+                </RadzenButton>
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Click="@(args => DeleteRow(order))" @onclick:stopPropagation="true">
+                </RadzenButton>
+            </Template>
+            <EditTemplate Context="order">
+                <RadzenButton Icon="check" @ref=AddControl ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="@((args) => SaveRow(order))" aria-label="Save">
+                </RadzenButton>
+                @if (ordersToInsert.Count > 0)
+                {
+                    <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Variant="Variant.Flat" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Click="@((args) => CancelEdit(order))" aria-label="Cancel">
+                    </RadzenButton>
+
+                }
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Flat" Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Click="@(args => DeleteRow(order))" aria-label="Delete">
+                </RadzenButton>
+            </EditTemplate>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+
+@code {
+    [Parameter]
+    public int Reference { get; set; }
+    [Parameter]
+    public int Id { get; set; }
+    DataGridEditMode editMode = DataGridEditMode.Single;
+    List<SalesReverseDetails> ordersToInsert = new List<SalesReverseDetails>();
+    List<SalesReverseDetails> ordersToUpdate = new List<SalesReverseDetails>();
+    RadzenDataGrid<SalesReverseDetails> ordersGrid;
+    IEnumerable<Customer> Customers;
+    // List<SalesReverseDetails> salesitem = new List<SalesReverseDetails>();
+    List<SalesReverseDetails> salesitemToSave = new List<SalesReverseDetails>();
+    public StoreMovementHeader StoreMovementHeader { get; set; } = new();
+    public List<StoreMovementDetails> StoreMovementDetails { get; set; } = new();
+
+    RadzenDropDownDataGrid<int> customercontrol;
+    RadzenDropDown<int> ItemNameControl;
+    RadzenDropDown<int> ItemStoreControl;
+    RadzenDropDown<int> ItemUnitControl;
+    RadzenNumeric<decimal> quantitycontrol;
+    RadzenNumeric<decimal> pricecontrol;
+    RadzenNumeric<decimal> Discountcontrol;
+    RadzenNumeric<decimal> amountcontrol;
+    RadzenDatePicker<DateTime> Datecontrol;
+    RadzenNumeric<int> ItemIdControl;
+    RadzenNumeric<int> RefernceNumber;
+
+    IEnumerable<Item> Items;
+    IEnumerable<Store> Stores;
+    IEnumerable<Unit> Units;
+    //---------------------
+
+
+    public bool IsSaveBtnDisabled { get; set; }
+
+
+    RadzenButton AddControl;
+    RadzenButton NewBtn;
+    RadzenButton SaveBtn;
+    RadzenAlert SaveAlert;
+    //-------------------------------
+    AlertStyle Alertstyle;
+    bool StoreError = false;
+    bool ItemError = false;
+    bool UnitError = false;
+    bool QuantityError = false;
+    bool QuantityBalanceError = false;
+    bool PriceError = false;
+    bool CustomerError = false;
+    bool DateError = false;
+    bool ItemsCountError = false;
+    bool SaveSucces = false;
+    bool DiscountError = false;
+    bool TotalDiscountError = false;
+    bool ItemIdError = false;
+    string SaveMessage = "";
+    string DateErrorMessage;
+    string ItemCountErrorMessage;
+    //----------------------------------
+    public decimal TotalQuantity { get; set; }
+    //-----------------
+    public decimal TotalDiscount { get; set; }
+    decimal ItemBalance = 0;
+    public RadzenDataGrid<SalesReverseDetails> salesgrid { get; set; }
+    public IEnumerable<SalesReverseDetails> SalesList { get; set; }
+    public Customer SelectCustomer { get; set; }
+    List<SalesReverseDetails> salesInvoiceDetails = new();
+    public Item SelectItem { get; set; }
+    public Unit SelectUnit { get; set; }
+    public Store SelectStore { get; set; }
+    public _Year year { get; set; }
+
+    public string UserId { get; set; }
+    public SalesReverseDetails ThisInvoice { get; set; }
+    int FromUnit;
+    int ToUnit;
+    public float Factory { get; set; }
+    public Item item { get; set; }
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+
+    void ItemConverted(SalesReverseDetails order)
+    {
+        if (item == null)
+        {
+            return;
+        }
+        FromUnit = item.UnitId;
+        if (ordersToInsert.Count > 0)
+        {
+            Factory = unitofwork.UnitsConverter.CreateFactory(FromUnit, ordersToInsert[0].UnitId);
+
+            if (Factory != 0)
+            {
+
+                ordersToInsert[0].ConvertedQuantity = order.Quantity / ((decimal)Factory);
+                ordersToInsert[0].ConvertedPrice = order.Price * ((decimal)Factory);
+                ordersToInsert[0].ConvertedUnitCost = order.UnitCost * ((decimal)Factory);
+
+            }
+            else
+            {
+                ordersToInsert[0].Price = item.SalesPrice;
+                ordersToInsert[0].UnitCost = item.PurchasePrice;
+
+
+            }
+
+            return;
+
+        }
+        if (ordersToUpdate.Count > 0)
+        {
+            Factory = unitofwork.UnitsConverter.CreateFactory(FromUnit, ordersToUpdate[0].UnitId);
+
+
+            if (Factory != 0)
+            {
+
+
+                ordersToUpdate[0].ConvertedQuantity = order.Quantity / ((decimal)Factory);
+                ordersToUpdate[0].ConvertedPrice = order.Price * ((decimal)Factory);
+                ordersToUpdate[0].ConvertedUnitCost = order.UnitCost * ((decimal)Factory);
+
+            }
+            else
+            {
+                ordersToUpdate[0].Price = item.SalesPrice;
+                ordersToUpdate[0].UnitCost = item.PurchasePrice;
+
+            }
+
+
+
+
+        }
+
+    }
+
+    void UnitConvert(SalesReverseDetails order)
+    {
+       
+        if (item == null)
+        {
+            return;
+        }
+        FromUnit = item.UnitId;
+        if (ordersToInsert.Count > 0)
+        {
+            Factory = unitofwork.UnitsConverter.CreateFactory(FromUnit, ordersToInsert[0].UnitId);
+            if (Factory == 0)
+            {
+                ordersToInsert[0].UnitId = item.UnitId;
+                ordersToInsert[0].Price = item.SalesPrice;
+                dialogservice.Alert("لايوجد ربط بين هذه الوحده والوحده الرئيسية تم الغاء الاختيار", "خطأ");
+                SetAmount();
+
+                return;
+            }
+
+            if (Factory != 0)
+            {
+
+
+                ordersToInsert[0].Price = item.SalesPrice / ((decimal)Factory);
+                ordersToInsert[0].UnitCost = item.PurchasePrice / ((decimal)Factory);
+
+
+            }
+            else
+            {
+                ordersToInsert[0].Price = item.SalesPrice;
+                ordersToInsert[0].UnitCost = item.PurchasePrice;
+
+
+            }
+
+            SetAmount();
+            return;
+
+        }
+        if (ordersToUpdate.Count > 0)
+        {
+            Factory = unitofwork.UnitsConverter.CreateFactory(FromUnit, ordersToUpdate[0].UnitId);
+            if (Factory == 0)
+            {
+                ordersToUpdate[0].UnitId = item.UnitId;
+                ordersToUpdate[0].Price = item.SalesPrice;
+                dialogservice.Alert("لايوجد ربط بين هذه الوحده والوحده الرئيسية تم الغاء الاختيار", "خطأ");
+
+                SetAmount();
+                return;
+            }
+
+            if (Factory != 0)
+            {
+                ordersToUpdate[0].Price = item.SalesPrice / ((decimal)Factory);
+                ordersToUpdate[0].UnitCost = item.PurchasePrice / ((decimal)Factory);
+
+
+            }
+            else
+            {
+                ordersToUpdate[0].Price = item.SalesPrice;
+                ordersToUpdate[0].UnitCost = item.PurchasePrice;
+
+            }
+
+
+
+
+        }
+
+        SetAmount();
+
+    }
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InsertRow();
+            await jsservice.setfocusbyid(() => customercontrol.UniqueID);
+
+
+
+        }
+
+        if (ordersToUpdate != null && ordersToUpdate.Count > 0)
+        {
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemDiscount", Discountcontrol.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemUnit", ItemUnitControl.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemStore", ItemStoreControl.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemName", ItemNameControl.UniqueID, DotNetObjectReference.Create(this));
+
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+
+        await base.OnInitializedAsync();
+
+        if (!await service.IsAuth())
+        {
+            nv.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        if (Id > 0)
+        {
+
+            salesitemToSave = unitofwork.SalesReverseDetails.GetDataWithMultiIncludeById(Id, UserId).ToList();
+            newsalesinvoiceheader = salesitemToSave[0].salesReverseHeader;
+            IsSaveBtnDisabled = true;
+            SetTotalQuantity();
+        }
+        else
+        {
+            newsalesinvoiceheader.SalesInvoiceDate = DateTime.Now;
+            IsSaveBtnDisabled = false;
+        }
+        jsservice.JSRuntime = jsrun;
+
+        Customers = await unitofwork.Customers.GetAllAsync(v => v.UserId == UserId);
+        Items = await unitofwork.Items.GetAllAsync(v => v.UserId == UserId);
+        Units = await unitofwork.Units.GetAllAsync(v => v.UserId == UserId);
+        Stores = await unitofwork.Stores.GetAllAsync(v => v.UserId == UserId);
+
+
+        year = unitofwork.Years.SelectOne(u => u.UserId == UserId && u.Status == false);
+        //  await InsertRow();
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "1");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+
+
+    async Task InsertRow()
+    {
+        if (editMode == DataGridEditMode.Single)
+        {
+            Reset();
+        }
+
+        var order = new SalesReverseDetails();
+        ordersToInsert.Add(order);
+
+        await ordersGrid.InsertRow(order);
+
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+    }
+    async void OnUpdateRow(SalesReverseDetails order)
+    {
+        Reset(order);
+
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+
+    }
+    async void OnCreateRow(SalesReverseDetails order)
+    {
+
+        var item = unitofwork.Items.GetById(order.ItemId);
+        var store = unitofwork.Stores.GetById(order.StoreId);
+        var unit = unitofwork.Units.GetById(order.UnitId);
+        if (salesitemToSave.Count > 0)
+        {
+            order.Moslsel = salesitemToSave.Max(p => p.Moslsel) + 1;
+        }
+        else
+        {
+            order.Moslsel = 1;
+        }
+
+        order.Item = item;
+        order.Store = store;
+        order.Unit = unit;
+
+        salesitemToSave.Add(order);
+        ordersToInsert.Remove(order);
+
+        ItemsCountError = false;
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+    }
+    void Reset()
+    {
+        ordersToInsert.Clear();
+        ordersToUpdate.Clear();
+    }
+
+    void Reset(SalesReverseDetails order)
+    {
+        ordersToInsert.Remove(order);
+        ordersToUpdate.Remove(order);
+    }
+    async Task DeleteRow(SalesReverseDetails order)
+    {
+        Reset(order);
+        var item = salesitemToSave.FirstOrDefault(p => p.Moslsel == order.Moslsel);
+        if (item != null)
+        {
+            salesitemToSave.Remove(order);
+            await ordersGrid.Reload();
+        }
+        else
+        {
+            ordersGrid.CancelEditRow(order);
+            await ordersGrid.Reload();
+        }
+        int c = 1;
+        foreach (var i in salesitemToSave)
+        {
+
+            i.Moslsel = c;
+            c++;
+        }
+        newsalesinvoiceheader.Total = salesitemToSave.Sum(p => p.Amount);
+        newsalesinvoiceheader.NetTotal = salesitemToSave.Sum(p => p.NetAmount);
+        SetTotalQuantity();
+        await InsertRow();
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+    }
+    async void CancelEdit(SalesReverseDetails order)
+    {
+
+        if (ordersToInsert.Count > 0)
+        {
+
+            salesitemToSave.Remove(order);
+            ordersGrid.CancelEditRow(order);
+            await InsertRow();
+            Reset(order);
+            SetAmount();
+            StoreError = false;
+            ItemError = false;
+            UnitError = false;
+            QuantityError = false;
+            PriceError = false;
+            ItemsCountError = false;
+        }
+        SetTotalQuantity();
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+    }
+    async Task SaveRow(SalesReverseDetails order)
+    {
+
+        if (order.ItemId <= 0)
+        {
+            ItemError = true;
+            await jsservice.setfocusbyid(() => ItemNameControl.UniqueID);
+
+            return;
+        }
+        else
+        {
+            ItemError = false;
+        }
+
+        if (Items != null)
+        {
+            var itemIsfound = Items.FirstOrDefault(o => o.ItemId == order.ItemId);
+            if (itemIsfound is null)
+            {
+                ItemError = true;
+                await jsservice.setfocusbyid(() => ItemNameControl.UniqueID);
+
+                return;
+            }
+            else
+            {
+                ItemError = false;
+            }
+
+        }
+
+
+        if (order.StoreId <= 0)
+        {
+            StoreError = true;
+            await jsservice.setfocusbyid(() => ItemStoreControl.UniqueID);
+
+            return;
+        }
+        else
+        {
+            StoreError = false;
+        }
+        if (order.Quantity == 0)
+        {
+            QuantityError = true;
+            await jsservice.SelectAllTextToFisrtChild(() => quantitycontrol.UniqueID);
+
+            return;
+        }
+        else
+        {
+            QuantityError = false;
+
+        }
+        if (order.UnitId <= 0)
+        {
+            UnitError = true;
+            await jsservice.setfocusbyid(() => ItemUnitControl.UniqueID);
+
+            return;
+        }
+        else
+        {
+            UnitError = false;
+
+        }
+        if (order.Price == 0)
+        {
+            PriceError = true;
+            await jsservice.SelectAllTextToFisrtChild(() => pricecontrol.UniqueID);
+
+            return;
+        }
+        else
+        {
+            PriceError = false;
+        }
+        if (order.ItemDiscount > (order.Quantity * order.Price))
+        {
+            DiscountError = true;
+            await jsservice.SelectAllTextToFisrtChild(() => Discountcontrol.UniqueID);
+
+            return;
+        }
+        else
+        {
+            DiscountError = false;
+        }
+        var item = unitofwork.Items.GetById(order.ItemId);
+        var store = unitofwork.Stores.GetById(order.StoreId);
+        var unit = unitofwork.Units.GetById(order.UnitId);
+        order.Item = item;
+        order.Store = store;
+        order.Unit = unit;
+        ItemConverted(order);
+      
+        await ordersGrid.UpdateRow(order);
+        await InsertRow();
+
+
+
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+    }
+    async Task EditRow(SalesReverseDetails order)
+    {
+        if (editMode == DataGridEditMode.Single && ordersToInsert.Count() > 0)
+        {
+            Reset();
+        }
+
+        ordersToUpdate.Add(order);
+
+        await ordersGrid.EditRow(order);
+        await ordersGrid.Reload();
+
+        StoreError = false;
+        ItemError = false;
+        UnitError = false;
+        QuantityError = false;
+        PriceError = false;
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+    }
+    void SetAmount()
+    {
+
+        if (ordersToInsert.Count > 0)
+        {
+            ordersToInsert[0].Amount = (ordersToInsert[0].Quantity * ordersToInsert[0].Price);
+            ordersToInsert[0].TotalCost = (ordersToInsert[0].Quantity * ordersToInsert[0].UnitCost);
+            newsalesinvoiceheader.Total = salesitemToSave.Sum(i => i.Amount) + ordersToInsert[0].Amount;
+
+            if (ordersToInsert[0].ItemDiscount > (ordersToInsert[0].Quantity * ordersToInsert[0].Price))
+            {
+                DiscountError = true;
+                return;
+            }
+            else
+            {
+                ordersToInsert[0].NetAmount = ordersToInsert[0].Amount - ordersToInsert[0].ItemDiscount;
+                DiscountError = false;
+            }
+            TotalDiscount = salesitemToSave.Sum(i => i.ItemDiscount) + ordersToInsert[0].ItemDiscount + newsalesinvoiceheader.TotalDiscount;
+            if (TotalDiscount > newsalesinvoiceheader.Total)
+            {
+                TotalDiscountError = true;
+                return;
+            }
+            else
+            {
+                newsalesinvoiceheader.NetTotal = newsalesinvoiceheader.Total - TotalDiscount;
+
+                TotalDiscountError = false;
+            }
+
+        }
+        if (ordersToUpdate.Count > 0)
+        {
+            ordersToUpdate[0].Amount = (ordersToUpdate[0].Quantity * ordersToUpdate[0].Price);
+            ordersToUpdate[0].Amount = (ordersToUpdate[0].Quantity * ordersToUpdate[0].UnitCost);
+            newsalesinvoiceheader.Total = salesitemToSave.Sum(i => i.Amount);
+
+            if (ordersToUpdate[0].ItemDiscount > (ordersToUpdate[0].Quantity * ordersToUpdate[0].Price))
+            {
+                DiscountError = true;
+                return;
+            }
+            else
+            {
+                ordersToUpdate[0].NetAmount = ordersToUpdate[0].Amount - ordersToUpdate[0].ItemDiscount;
+
+                DiscountError = false;
+            }
+            TotalDiscount = salesitemToSave.Sum(i => i.ItemDiscount) + newsalesinvoiceheader.TotalDiscount;
+            if (TotalDiscount > newsalesinvoiceheader.Total)
+            {
+                TotalDiscountError = true;
+                return;
+            }
+            else
+            {
+                newsalesinvoiceheader.NetTotal = newsalesinvoiceheader.Total - TotalDiscount;
+
+                TotalDiscountError = false;
+            }
+
+        }
+
+        SetTotalQuantity();
+    }
+    async void NewInvoice()
+    {
+        IsSaveBtnDisabled = false;
+        newsalesinvoiceheader = new();
+        salesInvoiceDetails = new();
+        salesitemToSave.Clear();
+        customertransaction = new();
+        StoreMovementHeader = new();
+        StoreMovementDetails = new();
+        TotalQuantity = 0;
+        newsalesinvoiceheader.SalesInvoiceDate = DateTime.Now;
+        if (Customers != null)
+        {
+            newsalesinvoiceheader.CustomerId = Customers.FirstOrDefault().CustomerId;
+        }
+
+
+        await ordersGrid.Reload();
+        await InsertRow();
+     
+
+        ResetErrors();
+        await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+        await jsservice.setfocusbyidtofirstchild(() => ItemIdControl.UniqueID);
+        await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+
+    }
+    void SaveInvoice()
+    {
+        if (newsalesinvoiceheader.CustomerId <= 0)
+        {
+            CustomerError = true;
+            return;
+        }
+        else
+        {
+            CustomerError = false;
+        }
+        // if (newsalesinvoiceheader.SalesInvoiceDate.Year != year.YearName)
+        // {
+        //     DateError = true;
+        //     DateErrorMessage = "يجب ان يكون تاريخ الفاتورة فى نفس العام المالى";
+        //     return;
+        // }
+        // else
+        // {
+        //     DateError = false;
+        // }
+        if (salesitemToSave.Count == 0)
+        {
+            ItemsCountError = true;
+            ItemCountErrorMessage = "يجب ادخال صنف الاقل ";
+            return;
+
+        }
+        else
+        {
+            ItemsCountError = false;
+        }
+        if (ordersToInsert.Count != 0)
+        {
+            if (ordersToInsert.Count > 0 && ordersToInsert[0].ItemId > 0 || ordersToInsert[0].Price > 0 || ordersToInsert[0].Quantity > 0)
+            {
+                ItemsCountError = true;
+                ItemCountErrorMessage = "هناك صنف فى وضع التحرير يجب الغاءه او اضافته";
+                return;
+
+            }
+            else
+            {
+                ItemsCountError = false;
+            }
+        }
+
+        if (TotalDiscount > newsalesinvoiceheader.Total)
+        {
+            TotalDiscountError = true;
+            return;
+        }
+        else
+        {
+            TotalDiscountError = false;
+        }
+
+        using (ContextDb.Database.BeginTransaction())
+        {
+            try
+            {
+                DateTime CreateDate = DateTime.Now;
+                int movementdocumentid = unitofwork.StoreMovementHeader.GetMaxId(s => s.MovementDocumentId, h => h.TypeId == 1) + 1;
+                int movementid = unitofwork.StoreMovementHeader.GetMaxId(s => s.MovementId) + 1;
+                //insert to sales header
+                int invoiceid = unitofwork.SalesReverseHeader.GetMaxId(s => s.SalesInvoiceId) + 1;
+                newsalesinvoiceheader.SalesInvoiceId = invoiceid;
+                newsalesinvoiceheader.UserId = UserId;
+                newsalesinvoiceheader.Year = year.Year;
+                newsalesinvoiceheader.CreateDate = CreateDate;
+                ContextDb.SalesReverseHeader.Add(newsalesinvoiceheader);
+
+                //insert to sales details
+
+
+                foreach (var item in salesitemToSave)
+                {
+                    item.SalesInvoiceId = invoiceid;
+
+                    salesInvoiceDetails.Add(item.Clone());
+                    StoreMovementDetails.Add(new Models.Models.StoreMovementDetails()
+                        {
+
+                            MovementId = movementid,
+                            ItemId = item.ItemId,
+                            StoreId = item.StoreId,
+                            UnitId = item.UnitId,
+                            Quantity = item.Quantity,
+                            Cost = item.UnitCost ,
+                            ConvertedCost = item.ConvertedUnitCost ,
+                            ConvertedQuantity = item.ConvertedQuantity ,
+                            UnitIdMain = item.UnitIdMain,
+                             TotalCost = item.TotalCost,
+                             Note = item.ItemNote,
+
+                        });
+
+                }
+
+                ContextDb.SalesReverseDetails.AddRange(salesInvoiceDetails);
+
+                // insert to store movement header
+
+                StoreMovementHeader.MovementId = movementid;
+                StoreMovementHeader.MovementDocumentId = movementdocumentid;
+                StoreMovementHeader.Date = newsalesinvoiceheader.SalesInvoiceDate;
+                StoreMovementHeader.TypeId = 1; // وارد
+                StoreMovementHeader.DocumentTypeId = (int)DocumentTypesEnum.SalesReverse;// مرتجع مبيعات
+                StoreMovementHeader.DocumentId = invoiceid;
+                StoreMovementHeader.UserId = UserId;
+                StoreMovementHeader.Year = year.Year;
+                StoreMovementHeader.CreateDate = CreateDate;
+                StoreMovementHeader.Note = newsalesinvoiceheader.Note;
+                ContextDb.StoreMovementHeader.Add(StoreMovementHeader);
+
+                //insert to store movement details
+
+                ContextDb.StoreMovementDetails.AddRange(StoreMovementDetails);
+
+                // insert in customer transaction
+                customertransaction.CustomerId = newsalesinvoiceheader.CustomerId;
+                customertransaction.DocumentTypeId = (int)DocumentTypesEnum.SalesReverse;
+                customertransaction.DocumentId = newsalesinvoiceheader.SalesInvoiceId;
+                customertransaction.Value = newsalesinvoiceheader.Total * -1;
+                customertransaction.UserId = newsalesinvoiceheader.UserId;
+                customertransaction.Year = newsalesinvoiceheader.Year;
+                customertransaction.TransactionDate = newsalesinvoiceheader.SalesInvoiceDate;
+                customertransaction.CreateDate = CreateDate;
+                ContextDb.CustomerTransactions.Add(customertransaction);
+                ContextDb.SaveChanges();
+                ContextDb.Database.CommitTransaction();
+                IsSaveBtnDisabled = true;
+                SaveSucces = true;
+                SaveMessage = $"تم الحفظ بنجاح رقم الفاتورة {newsalesinvoiceheader.SalesInvoiceId} ";
+
+                Alertstyle = AlertStyle.Success;
+                Thread t1 = new Thread(new ThreadStart(Closemessage));
+                t1.Start();
+
+            }
+            catch (Exception ex)
+            {
+
+                ContextDb.Database.RollbackTransaction();
+                SaveSucces = true;
+                SaveMessage = $"حدث خطأ  {ex.Message} ";
+                newsalesinvoiceheader.SalesInvoiceId = 0;
+                Alertstyle = AlertStyle.Danger;
+
+            }
+
+        }
+
+
+
+
+    }
+    void customerchange()
+    {
+        if (newsalesinvoiceheader.CustomerId > 0)
+        {
+            CustomerError = false;
+        }
+    }
+    void DateChange()
+    {
+        if (newsalesinvoiceheader.SalesInvoiceDate.Year == year.YearName)
+        {
+            DateError = false;
+        }
+    }
+    decimal GetItemBalance(int ItemId, int StoreId)
+    {
+        var q = unitofwork.StoreMovementDetails.GetItemBalance(s => s.ItemId == ItemId && s.StoreId == StoreId, s => s.Quantity);
+        return q;
+    }
+    void ResetErrors()
+    {
+        StoreError = false;
+        ItemError = false;
+        UnitError = false;
+        QuantityError = false;
+        QuantityBalanceError = false;
+        PriceError = false;
+        CustomerError = false;
+        DateError = false;
+        ItemsCountError = false;
+        DiscountError = false;
+        TotalDiscountError = false;
+        SaveSucces = false;
+        ItemIdError = false;
+    }
+    void Closemessage()
+    {
+
+        Thread.Sleep(5000);
+        SaveSucces = false;
+        ResetErrors();
+        InvokeAsync(() => this.StateHasChanged());
+
+    }
+    void customerkeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            jsservice.setfocusbyid(() => Datecontrol.UniqueID);
+        }
+    }
+    void Datekeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            jsservice.setfocusbyid(() => ordersGrid.UniqueID);
+        }
+    }
+    void Getprice(object args)
+    {
+        Item item = ((Item)args);
+
+        if (ordersToInsert.Count > 0)
+        {
+            ordersToInsert[0].Price = item.SalesPrice;
+            ordersToInsert[0].StoreId = item.StoreId;
+            ordersToInsert[0].UnitId = item.UnitId;
+
+        }
+        if (ordersToUpdate.Count > 0)
+        {
+            ordersToUpdate[0].Price = item.SalesPrice;
+            ordersToUpdate[0].StoreId = item.StoreId;
+            ordersToUpdate[0].UnitId = item.UnitId;
+        }
+        SetAmount();
+    }
+    void Getprice(SalesReverseDetails order)
+    {
+        //item = unitofwork.Items.GetById(order.ItemId);
+        if (Items != null)
+        {
+            item = Items.FirstOrDefault(o => o.ItemId == order.ItemId);
+
+        }
+        if (item is null)
+        {
+            ItemIdError = true;
+            return;
+        }
+        else
+        {
+            ItemIdError = false;
+        }
+        if (ordersToInsert.Count > 0)
+        {
+            ordersToInsert[0].Price = item.SalesPrice;
+            ordersToInsert[0].StoreId = item.StoreId;
+            ordersToInsert[0].UnitId = item.UnitId;
+            ordersToInsert[0].UnitCost = item.PurchasePrice;
+
+        }
+        if (ordersToUpdate.Count > 0)
+        {
+            ordersToUpdate[0].Price = item.SalesPrice;
+            ordersToUpdate[0].StoreId = item.StoreId;
+            ordersToUpdate[0].UnitId = item.UnitId;
+            ordersToUpdate[0].UnitCost = item.PurchasePrice;
+
+
+        }
+        //  order.Quantity = 1;
+        order.ItemDiscount = 0;
+        if (item.Unit?.UnitTypeId == 2)
+        {
+            order.UnitIdMain = unitofwork.UnitsConverter.GetById(item.UnitId).UnitMainId;
+        }
+        else
+        {
+            order.UnitIdMain = item.UnitId;
+        }
+        SetAmount();
+        ResetErrors();
+    }
+    void Invoices()
+    {
+        nv.NavigateTo("item_sales_report_selector");
+    }
+
+
+  
+    async void CreateByReference()
+    {
+        NewInvoice();
+        if (Reference > 0)
+        {
+            salesitemToSave.Clear();
+
+            var items = unitofwork.SalesInvoiceDetails.GetDataWithMultiIncludeById(Reference, UserId).ToList();
+            if (items == null || items.Count == 0)
+            { 
+                NewInvoice();
+                return ; 
+            }
+            for (int i = 0; i < items.Count; i++)
+            {
+                salesitemToSave.Add(new SalesReverseDetails()
+                    {
+                        Amount = items[i].Amount,
+
+                        Item = items[i].Item,
+                        ItemDiscount = items[i].ItemDiscount,
+                        ItemId = items[i].ItemId,
+                        ItemNote = items[i].ItemNote,
+                        Moslsel = items[i].Moslsel,
+                        NetAmount = items[i].NetAmount,
+                        Price = items[i].Price,
+                    UnitCost = items[i].UnitCost,
+                    TotalCost = items[i].TotalCost,
+                        SalesInvoiceId = 0,
+                        Quantity = items[i].Quantity,
+                        Store = items[i].Store,
+                        StoreId = items[i].StoreId,
+                        Unit = items[i].Unit,
+                        UnitId = items[i].UnitId
+
+                    });
+            }
+            for (int i = 0; i < items.Count - items.Count + 1; i++)
+            {
+                newsalesinvoiceheader = new SalesReverseHeader()
+                    {
+                        Farm = items[i].SalesInvoiceHeader?.Farm,
+                        FarmId = items[i].SalesInvoiceHeader?.FarmId,
+                        NetTotal = items[i].SalesInvoiceHeader.NetTotal,
+                        Note = items[i].SalesInvoiceHeader?.Note,
+                        Reference = items[i].SalesInvoiceHeader.SalesInvoiceId,
+                        SalesInvoiceDate = items[i].SalesInvoiceHeader.SalesInvoiceDate,
+                        SalesInvoiceId = 0,
+                        Total = items[i].SalesInvoiceHeader.Total,
+                        TotalDiscount = items[i].SalesInvoiceHeader.TotalDiscount,
+
+                        UserId = items[i].SalesInvoiceHeader?.UserId,
+
+                        CustomerId = items[i].SalesInvoiceHeader.CustomerId,
+                        Year = items[i].SalesInvoiceHeader.Year,
+
+                    };
+            }
+
+            //newsalesinvoiceheader = salesitemToSave[0].salesReverseHeader;
+            SetTotalQuantity();
+            await ordersGrid.Reload();
+            ResetErrors();
+            await InsertRow();
+            
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemId", ItemIdControl.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerQuantity", quantitycontrol.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerprice", pricecontrol.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemDiscount", Discountcontrol.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemUnit", ItemUnitControl.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemStore", ItemStoreControl.UniqueID, DotNetObjectReference.Create(this));
+            await jsrun.InvokeVoidAsync("addKeydownListenerItemName", ItemNameControl.UniqueID, DotNetObjectReference.Create(this));
+
+
+        }
+
+    }
+    void SetTotalQuantity()
+    {
+        TotalQuantity = ordersToInsert.Count > 0 ? salesitemToSave.Sum(i => i.Quantity) + ordersToInsert[0].Quantity : salesitemToSave.Sum(i => i.Quantity);
+    }
+
+    public async void HandleKeydownCustomer(KeyboardEventArgs e)
+
+    {
+        if (e.Key == "Enter")
+        {
+
+            await jsservice.SelectAllTextToFisrtChild(() => ItemIdControl.UniqueID);
+        }
+
+    }
+    [JSInvokable]
+    public async void HandleKeydownRefernce(string key)
+
+    {
+        if (key == "Enter")
+        {
+
+            CreateByReference();
+        }
+
+    }
+    [JSInvokable]
+    public async void HandleKeydownItemID(string key)
+
+    {
+        if (key == "Enter")
+        {
+
+            await jsservice.SelectAllTextToFisrtChild(() => quantitycontrol.UniqueID);
+        }
+
+    }
+    [JSInvokable]
+    public async void HandleKeydownItemName(string key)
+
+    {
+        if (key == "Enter")
+        {
+
+            await jsservice.SelectAllTextToFisrtChild(() => quantitycontrol.UniqueID);
+        }
+
+    }
+
+    [JSInvokable]
+    public async void HandleKeydownItemStore(string key)
+
+    {
+        if (key == "Enter")
+        {
+
+            await jsservice.SelectAllTextToFisrtChild(() => quantitycontrol.UniqueID);
+        }
+
+    }
+    [JSInvokable]
+    public async void HandleKeydownItemUnit(string key)
+
+    {
+        if (key == "Enter")
+        {
+
+            await jsservice.SelectAllTextToFisrtChild(() => quantitycontrol.UniqueID);
+        }
+
+    }
+    [JSInvokable]
+    public async void HandleKeydownQuantity(string key)
+    {
+        if (key == "Enter")
+        {
+
+            await jsservice.SelectAllTextToFisrtChild(() => pricecontrol.UniqueID);
+
+        }
+
+    }
+    [JSInvokable]
+    public async void HandleKeydownDiscount(string key)
+    {
+        if (key == "Enter")
+        {
+
+
+            await jsservice.setfocusbyid(() => AddControl.UniqueID);
+
+        }
+
+    }
+    [JSInvokable]
+    public async void HandleKeydownPrice(string key)
+    {
+        if (key == "Enter")
+        {
+
+            await jsservice.setfocusbyid(() => AddControl.UniqueID);
+
+        }
+
+    }
+}

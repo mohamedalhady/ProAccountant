@@ -1,0 +1,135 @@
+﻿@page "/add-safe"
+@page "/add-safe/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject Safe safe
+@inject NavigationManager nv
+@inject LayoutState layoutState
+<title>اضافة خزينة</title>
+<EditForm Model="safe" FormName="add-safe" class="form-control p-5 m-2 ">
+
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var item in Errors)
+                {
+                    <li>@item.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم الخزينه" Component="safename" Style="width: 100%; max-width: 200px;" />
+        <RadzenTextBox @bind-Value=safe.SafeName Style="width: 100%; max-width: 400px;" Name="safename" />
+
+
+    </RadzenRow>
+
+
+    <RadzenRow>
+     
+      
+            <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="newsafe" />
+           <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="addsafe" />
+
+    </RadzenRow>
+
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenButton newbtn;
+    RadzenButton Cancelbtn;
+    [Parameter]
+
+    public RadzenButton addbtn { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    public bool IsValid { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!await service.IsAuth())
+        {
+            nv.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        if (Id > 0)
+        {
+            safe = unitofwork.Safe.SelectOne(i => i.SafeId == Id && i.UserId == UserId);
+        }
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "6");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+
+    void newsafe()
+    {
+        safe = new();
+        Errors.Clear();
+        Id = 0;
+        addbtn.Text = "حفظ";
+    }
+    async void addsafe()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Safe.UpdateOne(safe);
+            }
+            else
+            {
+                safe.UserId = UserId;
+                unitofwork.Safe.AddOne(safe);
+                Id = safe.SafeId;
+                addbtn.Text = "تعديل";
+            }
+       
+
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+        }
+
+    }
+    bool validation()
+    {
+        Errors.Clear();
+        if (string.IsNullOrEmpty(safe.SafeName))
+        {
+            Errors.Add("safename", "يجب ادخال اسم الخزينه");
+
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+}

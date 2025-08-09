@@ -1,0 +1,273 @@
+﻿@page "/unit-converter-mapping"
+@page "/unit-converter-mapping/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NavigationManager nav
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject DialogService dialogservice
+@layout Layout.MainLayout
+@* @inject UnitsConverter unitconverter
+ *@<title>ربط وحدات الاصناف</title>
+
+
+<RadzenStack Orientation="Orientation.Horizontal">
+    <RadzenStack style="min-width:40%;">
+        <RadzenAlert @ref="SaveAlert" Visible=@SaveSucces AllowClose="true" AlertStyle="@Alertstyle" Size="AlertSize.Small" Text=@SaveMessage />
+
+        <EditForm Model="unitconverter" FormName="add-new-farm" class="form-control p-5 m-2 ">
+            <RadzenCard>
+                <RadzenRow class="mb-4">
+                    <RadzenLabel Text="الوحدة الرئيسية"  Component="MainUnit" Style="width: 100%;" />
+                    <RadzenDropDown @bind-Value=unitconverter.UnitMainId @ref=MainDropDown Data=@MainUnits ValueProperty="@nameof(Unit.UnitId)" TextProperty="@nameof(Unit.UnitName)" Style="width: 100%;" Name="MainUnit" />
+                    <RadzenAlert Visible=@MainUnitError AllowClose="false" Style="overflow:auto" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال الوحده الرئيسية" />
+
+                </RadzenRow>
+                <RadzenRow class="mb-4">
+                    <RadzenLabel Text="الوحدة الفرعية" Component="SubUnit" Style="width: 100%; " />
+                    <RadzenDropDown @bind-Value=unitconverter.UnitSubId @ref=SubDropDown Data=@SubUnits ValueProperty="@nameof(Unit.UnitId)" TextProperty="@nameof(Unit.UnitName)" Style="width: 100%; " Name="SubUnit" />
+                    <RadzenAlert Visible=@SubUnitError AllowClose="false" Style="overflow:auto" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="@SubErrorMessage" />
+                </RadzenRow>
+                <RadzenRow class="mb-4">
+                    <RadzenLabel Text="معامل التحويل" Component="MainUnit" Style="width: 100%; " />
+                    <RadzenNumeric Min="0" TValue="float" @bind-Value=unitconverter.ConversionFactor TextAlign="TextAlign.Right"></RadzenNumeric>
+                    <RadzenAlert Visible=@FactoryError AllowClose="false" Style="overflow:auto" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال المعامل" />
+
+                </RadzenRow>
+                <RadzenButton Text="جديد" Icon="add" Click="NewFactory"></RadzenButton>
+
+                <RadzenButton Text="حفظ" ButtonStyle="ButtonStyle.Success" Icon="save" Click="SaveInvoice"></RadzenButton>
+                <RadzenButton Text="حذف" ButtonStyle="ButtonStyle.Danger" Icon="delete" Click="Delete"></RadzenButton>
+
+
+            </RadzenCard>
+
+
+        </EditForm>
+
+    </RadzenStack>
+    <RadzenDataGrid class="m-2" TItem="UnitsConverter" Data="Data" @ref=grid AllowFiltering="true" AllowAlternatingRows="true" AllowColumnResize="true" FilterMode="FilterMode.SimpleWithMenu" AllowSorting="true" AllowRowSelectOnRowClick="true"
+                    AllowPaging="false" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ApplyFilterText="تصفية" EmptyText="لايوجد بيانات " ShowMultiColumnSortingIndex="true" AllowMultiColumnSorting="true" SelectionMode="DataGridSelectionMode.Single"
+                    ClearFilterText="الغاء" AllowColumnReorder="true" Style="height:600px;cursor:pointer;" @bind-Value=@selecteditem
+                    ColumnsShowingText="اظهار الاعمدة" GridLines="DataGridGridLines.Both"  RowSelect="Edit" ColumnWidth="50px">
+
+
+        <Columns>
+            <RadzenDataGridColumn Title="الوحدة الرئيسية" Width="50px" Property="@nameof(unitconverter.UnitMainId)" TextAlign="Radzen.TextAlign.Center">
+                <Template Context="data">
+                    @data.UnitMain?.UnitName
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Title="الوحدة الفرعية" Width="50px" Property="@nameof(unitconverter.UnitSubId)" TextAlign="Radzen.TextAlign.Center">
+                <Template Context="data">
+                    @data.UnitSub?.UnitName
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn Title="المعامل" Width="50px" Property="@nameof(unitconverter.ConversionFactor)" TextAlign="Radzen.TextAlign.Center">
+
+            </RadzenDataGridColumn>
+        </Columns>
+
+    </RadzenDataGrid>
+
+</RadzenStack>
+
+
+@code{
+    [Parameter]
+    public int Id { get; set; }
+    IEnumerable<Unit> MainUnits;
+    IEnumerable<Unit> SubUnits;
+    RadzenDropDown<int> MainDropDown;
+    RadzenDropDown<int> SubDropDown;
+    RadzenButton SaveBtn;
+    public IEnumerable<UnitsConverter> Data { get; set; }
+    RadzenDataGrid<UnitsConverter> grid;
+    public IList<UnitsConverter> selecteditem { get; set; }
+    RadzenAlert SaveAlert;
+    bool SaveSucces = false;
+    AlertStyle Alertstyle;
+    string SaveMessage = "";
+    bool MainUnitError;
+    bool SubUnitError;
+    bool FactoryError;
+    public int OldUnitSub { get; set; }
+    public string SubErrorMessage { get; set; }
+    public UnitsConverter unitconverter { get; set; } 
+    public string UserId { get; set; }
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        unitconverter = new();
+        UserId =await service.GetUserId();
+        MainUnits = await unitofwork.Units.GetAllAsync(u => u.UnitTypeId == 1 && u.UserId == UserId );
+        SubUnits = await unitofwork.Units.GetAllAsync(u => u.UnitTypeId == 2 && u.UserId == UserId);
+        Data = await unitofwork.UnitsConverter.GetAllAsync("UnitMain", "UnitSub");
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "5");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    async void  SaveInvoice()
+    {
+        try
+        {
+            unitconverter.UserId = UserId ; 
+            if (unitconverter.UnitMainId == 0)
+            {
+                MainUnitError = true;
+                return;
+            }
+            else
+            {
+                MainUnitError = false;
+            }
+            if (unitconverter.UnitSubId == 0)
+            {
+                SubUnitError = true;
+                SubErrorMessage = "يجب ادخال الوحده الفرعية";
+                return;
+            }
+            else
+            {
+                SubUnitError = false;
+            }
+            if (unitconverter.ConversionFactor == 0)
+            {
+                FactoryError = true;
+                return;
+            }
+            else
+            {
+                FactoryError = false;
+            }
+
+
+            if (unitconverter.Id > 0)
+            {
+                if (OldUnitSub != unitconverter.UnitSubId)
+                {
+                    var IsFound = unitofwork.UnitsConverter.Any(u => u.UnitSubId == unitconverter.UnitSubId);
+                    if (IsFound)
+                    {
+                        SubUnitError = true;
+                        SubErrorMessage = "هذه الوحده يوجد ربط لها قبل ذلك";
+                        return;
+                    }
+                }
+
+
+                unitofwork.UnitsConverter.UpdateOne(unitconverter);
+
+            }
+            else
+            {
+
+                var IsFound = unitofwork.UnitsConverter.Any(u => u.UnitSubId == unitconverter.UnitSubId && u.UnitMainId == unitconverter.UnitMainId);
+                if (IsFound)
+                {
+                    SubUnitError = true;
+                    SubErrorMessage = "يوجد نفس الربط قبل ذلك";
+                    return;
+                }
+
+                unitofwork.UnitsConverter.AddOne(unitconverter);
+
+            }
+
+            SaveSucces = true;
+            SaveMessage = "تم الحفظ بنجاح";
+            Alertstyle = AlertStyle.Success;
+            Thread t1 = new Thread(new ThreadStart(Closemessage));
+            t1.Start();
+            Data = await unitofwork.UnitsConverter.GetAllAsync(u => u.UserId == UserId,"UnitMain", "UnitSub");
+            await  grid.SelectRow(unitconverter);
+            NewFactory();
+
+        }
+        catch (Exception ex)
+        {
+
+            SaveSucces = true;
+            SaveMessage = ex.Message;
+            Alertstyle = AlertStyle.Danger;
+        }
+
+    }
+
+    void NewFactory()
+    {
+        unitconverter = new();
+    }
+
+    void Edit(UnitsConverter unitfactor)
+    {
+
+
+        unitconverter = unitfactor;
+
+        OldUnitSub = unitconverter.UnitSubId;
+        FactoryError = false;
+        MainUnitError = false;
+        SubUnitError = false;
+
+    }
+    void Closemessage()
+    {
+
+        Thread.Sleep(2000);
+        SaveSucces = false;
+
+        InvokeAsync(() => this.StateHasChanged());
+
+    }
+    async void Delete()
+    {
+        if (unitconverter != null && unitconverter.Id > 0)
+        {
+            try
+            {
+                var result = await dialogservice.Confirm("هل تريد الحذف ", "حذف ", new ConfirmOptions()
+                    {
+                        OkButtonText = "نعم",
+                        CancelButtonText = "لا"
+                    });
+                    if (result != null)
+                        {
+                            if (result.Value == true)
+                            {
+                                unitofwork.UnitsConverter.DeleteOne(unitconverter);
+                                Data = await unitofwork.UnitsConverter.GetAllAsync("UnitMain", "UnitSub");
+                                unitconverter = new();
+                                StateHasChanged();
+                            }
+                        }
+             
+                
+            }
+            catch (Exception ex)
+            {
+                
+                SaveSucces = true;
+                SaveMessage = ex.Message;
+                Alertstyle = AlertStyle.Danger;
+            }
+          
+        }
+    }
+  
+}

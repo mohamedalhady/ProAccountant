@@ -1,0 +1,333 @@
+﻿@page "/storemovement-report/{ItemsId}/{StoresId}/{from:datetime}/{to:datetime}/{InvoiceId:int}"
+@using System.Text.Json
+@using MyFarmWeb.Components.Pages.DataGridSettingsFolder
+@using MyFarmWeb.Repository.special.Class
+@using Radzen.Blazor.Rendering
+@layout Layout.EmptyLayout
+@inject SetDataGridSetting dgsetting
+@inject IUnitOfWork unitofwork
+@inject IJSRuntime JSRuntime
+@inject NavigationManager nav
+@rendermode InteractiveServer
+@inject Service service
+@using Microsoft.JSInterop
+
+
+@inject DialogService DialogService
+@inject IJSRuntime JSRuntime
+<title> تقرير حركة المخازن</title>
+<RadzenCard>
+    @if (IsLoading)
+    {
+        <RadzenStack AlignItems="AlignItems.Center" class="rz-m-12" Gap="2rem">
+            <RadzenProgressBarCircular Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+        </RadzenStack>
+    }
+    <RadzenStack Orientation="Orientation.Horizontal" Style="width:50%;margin-right:40px;">
+        <RadzenLabel Component="DropDownfrozen">اختيار الاعمده </RadzenLabel>
+        <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridColumns ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                @bind-Value=ColumnsFrozen Data=@dataGridColumnsFrozens AllowClear="true"
+                                TextProperty="@nameof(DataGridColumnsFrozen.ColumnTitle)" ValueProperty="@nameof(DataGridColumnsFrozen.ColumnKey)" AllowFiltering="true" Name="DropDownfrozen">
+            <Columns>
+                <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                    <HeaderTemplate>
+                        <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "اختيار الكل" } })" Disabled="@(!gridColumns.AllowSelectAll)" TriState="false" TValue="bool"
+                                        Change="@(args => ColumnsFrozen = args ? gridColumns.View.Cast<DataGridColumnsFrozen>().Select(c => c.ColumnKey) : ColumnsFrozen = Enumerable.Empty<string>())" />
+                    </HeaderTemplate>
+                    <Template Context="data">
+                        <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "اختار عمود" } })" TriState="false" Value="@(ColumnsFrozen != null && ColumnsFrozen.Contains(((DataGridColumnsFrozen)data).ColumnKey))"
+                                        TValue="bool" Change=@(args => gridColumns.SelectItem(data)) @onclick:stopPropagation />
+                    </Template>
+                </RadzenDropDownDataGridColumn>
+
+
+                <RadzenDropDownDataGridColumn Property="@nameof(DataGridColumnsFrozen.ColumnTitle)" Title="اسم العمود" />
+
+            </Columns>
+        </RadzenDropDownDataGrid>
+        <RadzenButton ButtonStyle="ButtonStyle.Danger" Text="تجميد" Click="@FrozenColumn" />
+    </RadzenStack>
+
+
+</RadzenCard>
+<RadzenDataGrid class="mb-5" @bind-Settings=_settings @ref=invoicegrid AllowFiltering="true" AllowAlternatingRows="true" AllowColumnResize="true" FilterMode="FilterMode.SimpleWithMenu" AllowSorting="true"
+                Data="@Invoices" AllowGrouping="true" AllowPaging="false" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true" GroupFootersAlwaysVisible="true" TItem="StoreMovementDetails"
+                ColumnWidth="50px" Style="height:600px;" GroupPanelText="اسحب هنا للتجميع" AllGroupsExpanded="IsExpand" LogicalFilterOperator="LogicalFilterOperator.And" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selecteditem
+                ApplyFilterText="تصفية" EmptyText="لايوجد بيانات " ShowMultiColumnSortingIndex="true" AllowMultiColumnSorting="true" ColumnReordered="FrozenColumn" ClearFilterText="الغاء" AllowColumnReorder="true" AllowColumnPicking="true" ColumnsShowingText="اظهار الاعمدة" GridLines="DataGridGridLines.Both">
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="expand" Text="توسيع" Click="@expand" />
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="switch_left" Text="تجميع" Click="@collapse" />
+        <RadzenButton Icon="add" Click="OpenLayouts" Text="المخطط"></RadzenButton>
+
+    </HeaderTemplate>
+    <Columns>
+        <RadzenDataGridColumn Property="StoreMovementHeader.StoreMovementType.TypeName" Title="نوع حركة المخزن" Width="160px" OrderIndex="1"/>
+        <RadzenDataGridColumn Property="@nameof(StoreMovementDetails.MovementId)" Title="رقم الحركة" Width="160px" OrderIndex="1">
+
+            <FooterTemplate>
+                <b>@invoicegrid.View.Select(i => i.MovementId).Distinct().Count()</b>
+            </FooterTemplate>
+            <GroupFooterTemplate Context="data">
+                <b>@data.Data.Count</b>
+            </GroupFooterTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="StoreMovementHeader.DocumentType.DocumentTypeName" Title="نوع المستند" Width="160px" OrderIndex="1"/>
+        <RadzenDataGridColumn Property="StoreMovementHeader.MovementDocumentId" Title="رقم المستند" Width="160px" OrderIndex="1"/>
+
+        <RadzenDataGridColumn Property="@nameof(StoreMovementHeader.Date)" Title="التاريخ" Width="160px" OrderIndex="2">
+            <Template Context="data">
+                @data.StoreMovementHeader?.Date.ToString("yyyy-MM-dd")
+            </Template>
+        </RadzenDataGridColumn>
+     
+        
+       
+        <RadzenDataGridColumn Property="Item.ItemName" Title="اسم الصنف" Width="160px" OrderIndex="7" />
+
+        <RadzenDataGridColumn Property="Store.StoreName" Title="المخزن" Width="160px" OrderIndex="8" />
+        <RadzenDataGridColumn Property="Unit.UnitName" Title="الوحدة" Width="160px" OrderIndex="9" />
+
+        <RadzenDataGridColumn Property="@nameof(StoreMovementDetails.Quantity)" Title="الكمية" Width="160px" OrderIndex="10">
+
+            <FooterTemplate>
+                <b>@invoicegrid.View.Sum(i => i.Quantity).ToString("N3")</b>
+            </FooterTemplate>
+            <GroupFooterTemplate>
+                <b>@(context.Data.Items.Cast<StoreMovementDetails>().Sum(i => i.Quantity).ToString("N3"))</b>
+            </GroupFooterTemplate>
+
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(StoreMovementDetails.Note)" Title="ملاحظات" Width="160px" OrderIndex="11" />
+
+ 
+     
+    </Columns>
+
+</RadzenDataGrid>
+@code {
+    IEnumerable<string> ColumnsFrozen = new string[] { };
+    RadzenDropDownDataGrid<IEnumerable<string>> gridColumns;
+    bool isfrozen;
+    List<DataGridColumnsFrozen> dataGridColumnsFrozens = new();
+    RadzenButton btnpopup;
+    Popup popup;
+    public string GridId { get; set; } = "storemovement-report";
+    // حفظ اعدادات الجريد
+    DataGridSettings _settings;
+    public DataGridSettings Settings
+    {
+        get
+        {
+            return _settings;
+        }
+        set
+        {
+            if (_settings != value)
+            {
+                _settings = value;
+
+            }
+        }
+    }
+
+    //---------------------
+    LoadDataArgs LoadDataArgs = new();
+    [Parameter]
+    public string VendorsId { get; set; }
+    [Parameter]
+    public int InvoiceId { get; set; }
+
+    [Parameter]
+    public string ItemsId { get; set; }
+
+    [Parameter]
+    public string StoresId { get; set; }
+
+    [Parameter]
+    public DateTime from { get; set; }
+
+    [Parameter]
+    public DateTime to { get; set; }
+
+    private int[] VendorsIdArray { get; set; }
+
+    private int[] ItemsIdArray { get; set; }
+
+    private int[] StoresIdArray { get; set; }
+    public bool IsLoading { get; set; } = true;
+    DataGridSettings dataGridSettings;
+    public IList<StoreMovementDetails> selecteditem { get; set; }
+    public IEnumerable<StoreMovementDetails> Invoices { get; set; }
+    public bool IsExpand { get; set; } = true;
+    RadzenDataGrid<StoreMovementDetails> invoicegrid;
+    public string UserId { get; set; }
+
+    public DataGridSetting LayoutDefault { get; set; }
+    public int LayoutIdSelection { get; set; }
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    public async void OpenLayouts()
+    {
+        var setting = JsonSerializer.Serialize<DataGridSettings>(_settings);
+        var columnsfrozensetting = JsonSerializer.Serialize<IEnumerable<string>>(ColumnsFrozen);
+        var result = await DialogService.OpenAsync<DataGridLayouts>("",
+                new Dictionary<string, object>() { { "UserId", UserId }, { "GridId", GridId }, { "Setting", setting }, { "Id", LayoutIdSelection }, { "IsExpand", IsExpand }, { "ColumnFrozenSetting", columnsfrozensetting } },
+               new DialogOptions()
+               {
+                   Resizable = false,
+                   Draggable = true,
+
+                   Width = "900px",
+                   Height = "600px"
+               });
+
+        if (result != null)
+        {
+            ColumnsFrozen = Enumerable.Empty<string>();
+            _settings = JsonSerializer.Deserialize<DataGridSettings>(result.Setting);
+            LayoutIdSelection = result.Id;
+            IsExpand = result.IsExpand;
+            if (result.ColumnsFrozen != null)
+            {
+                ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(result.ColumnsFrozen);
+
+
+            }
+            FrozenColumn();
+            StateHasChanged();
+
+
+        }
+
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+
+        if (firstRender)
+        {
+            await runtaskfillcolumnfrozen();
+
+            await gridColumns.Reload();
+            if (LayoutDefault is not null)
+            {
+                _settings = JsonSerializer.Deserialize<DataGridSettings>(LayoutDefault.Setting);
+                ColumnsFrozen = JsonSerializer.Deserialize<IEnumerable<string>>(LayoutDefault.ColumnsFrozen);
+                FrozenColumn();
+                LayoutIdSelection = LayoutDefault.Id;
+                IsExpand = LayoutDefault.IsExpand;
+
+            }
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+        // await  base.OnInitializedAsync();
+        //Invoices = unitofwork.StoreMovementDetails.GetDocumentDataForReport(UserId);
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        Dictionary<string, int[]> parameters = new();
+
+     
+        if (ItemsId != null && ItemsId != "null")
+        {
+            ItemsIdArray = ItemsId?.Split(',').Select(int.Parse).ToArray();
+            parameters.Add("Items", ItemsIdArray);
+        }
+        if (StoresId != null && StoresId != "null")
+        {
+            StoresIdArray = StoresId?.Split(',').Select(int.Parse).ToArray();
+            parameters.Add("Stores", StoresIdArray);
+        }
+
+        UserId = await service.GetUserId();
+        Invoices = unitofwork.StoreMovementDetails.FilterDocumentData( "0",from, to, InvoiceId,parameters).ToList();
+
+        LayoutDefault = dgsetting.GetLayoutDefault(UserId, GridId);
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "5");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+
+
+
+    }
+
+    Task<int> runtaskfillcolumnfrozen()
+    {
+        var i = Task.Run(FillColumnsToFrozen);
+
+        return i;
+    }
+
+    int FillColumnsToFrozen()
+    {
+        dataGridColumnsFrozens.Clear();
+        for (int i = 0; i < invoicegrid.ColumnsCollection.Count - 1; i++)
+        {
+            dataGridColumnsFrozens.Add(new()
+            {
+
+                ColumnKey = invoicegrid.ColumnsCollection[i].Property,
+                ColumnTitle = invoicegrid.ColumnsCollection[i].Title,
+
+
+            });
+        }
+
+        return 0;
+
+    }
+   
+
+    void FrozenColumn()
+    {
+
+
+        foreach (var item in invoicegrid.ColumnsCollection)
+        {
+            item.Frozen = false;
+        }
+
+        if (ColumnsFrozen != null)
+        {
+
+            for (int i = 0; i < ColumnsFrozen.Count(); i++)
+            {
+                invoicegrid.ColumnsCollection.FirstOrDefault(s => s.Property == ColumnsFrozen.ToArray()[i].ToString()).Frozen = true;
+
+
+            }
+        }
+
+
+
+    }
+    
+    void expand()
+    {
+        IsExpand = true;
+    }
+    void collapse()
+    {
+        IsExpand = false;
+    }
+
+
+}

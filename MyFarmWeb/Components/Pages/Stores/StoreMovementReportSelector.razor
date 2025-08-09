@@ -1,0 +1,177 @@
+﻿@page "/storemovement_report_selector"
+@rendermode InteractiveServer
+@layout Layout.MainLayout
+@inject IUnitOfWork unitofwork
+@inject Service service
+@inject MyFarmWeb.Data.MyFarmContext db
+@inject NavigationManager nv
+<title> تقرير حركة المخزن</title>
+<RadzenCard class="rz-my-6">
+    <RadzenStack Gap="20px">
+
+        <RadzenRow>
+            <RadzenLabel Component="invoiceid">رقم الحركة</RadzenLabel>
+            <RadzenNumeric TValue="int" Min="0" @bind-Value="InvoiceId" Style="margin-right:20px;" TextAlign="Radzen.TextAlign.Center" Name="invoiceid"></RadzenNumeric>
+
+        </RadzenRow>
+
+        <RadzenRow>
+
+
+            <RadzenLabel Component="from">من تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=from Style="margin-right:40px;" Name="from" />
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="to">الى تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=to Style="margin-right:40px;" Name="to" />
+
+        </RadzenRow>
+       
+        <RadzenRow>
+            <RadzenLabel Component="DropDownDatastore">المخزن</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridstore FocusFilterOnPopup="true" ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=StoresId Data=@Stores AllowFilteringByAllStringColumns="true"
+                                        TextProperty="@nameof(Store.StoreName)" ValueProperty="@nameof(Store.StoreId)" AllowFiltering="true" Name="DropDownDatastore">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select all" } })" Disabled="@(!gridstore.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => StoresId = args ? gridstore.View.Cast<Store>().Select(c => c.StoreId) : StoresId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select item" } })" TriState="false" Value="@(StoresId != null && StoresId.Contains(((Store)data).StoreId))"
+                                                TValue="bool" Change=@(args => gridstore.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Store.StoreId)" Title="كود المخزن" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Store.StoreName)" Title="اسم المخزن" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="DropDownitem">الصنف</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=griditem FocusFilterOnPopup="true" ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=ItemsId Data=@Items AllowFilteringByAllStringColumns="true"
+                                        TextProperty="@nameof(Item.ItemName)" ValueProperty="@nameof(Item.ItemId)" AllowFiltering="true" Name="DropDownitem">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select all" } })" Disabled="@(!griditem.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => ItemsId = args ? griditem.View.Cast<Item>().Select(c => c.ItemId) : ItemsId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select item" } })" TriState="false" Value="@(ItemsId != null && ItemsId.Contains(((Item)data).ItemId))"
+                                                TValue="bool" Change=@(args => griditem.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Item.ItemId)" Title="كود الصنف" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Item.ItemName)" Title="اسم الصنف" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+
+    </RadzenStack>
+    <RadzenButton Text="تنفيذ" Icon="save" Click="search" Style="margin-right:100px;margin-top:20px;"></RadzenButton>
+</RadzenCard>
+
+
+
+@code {
+    public int InvoiceId { get; set; }
+    RadzenDropDownDataGrid<IEnumerable<int>> gridcustomer;
+    RadzenDropDownDataGrid<IEnumerable<int>> griditem;
+    RadzenDropDownDataGrid<IEnumerable<int>> gridstore;
+    public int CustomerId { get; set; }
+    IEnumerable<Customer> Customers;
+    IEnumerable<Item> Items;
+    IEnumerable<Store> Stores;
+    IEnumerable<int> CustomersId = new int[] { };
+    IEnumerable<int> ItemsId = new int[] { };
+    IEnumerable<int> StoresId = new int[] { };
+
+    public string customeridstring { get; set; } = "";
+    public string itemidstring { get; set; } = "";
+    public string storeidstring { get; set; } = "";
+    public DateTime from { get; set; }
+    public DateTime to { get; set; }
+    public string UserId { get; set; }
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!await service.IsAuth())
+        {
+            nv.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Customers = await unitofwork.Customers.GetAllAsync(v => v.UserId == UserId);
+        Items = await unitofwork.Items.GetAllAsync(i => i.UserId == UserId);
+        Stores = await unitofwork.Stores.GetAllAsync(i => i.UserId == UserId);
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "5");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void search()
+
+    {
+
+
+      
+        if (ItemsId != null && ItemsId.Any())
+        {
+            foreach (var item in ItemsId)
+            {
+                if (string.IsNullOrEmpty(itemidstring))
+                {
+                    itemidstring = item.ToString();
+
+                }
+                else
+                {
+                    itemidstring = itemidstring + "," + item.ToString();
+                }
+
+            }
+        }
+        if (StoresId != null && StoresId.Any())
+        {
+            foreach (var item in StoresId)
+            {
+                if (string.IsNullOrEmpty(storeidstring))
+                {
+                    storeidstring = item.ToString();
+
+                }
+                else
+                {
+                    storeidstring = storeidstring + "," + item.ToString();
+                }
+
+            }
+        }
+        // Default each parameter to "null" if it's empty or null
+        itemidstring = string.IsNullOrEmpty(itemidstring) ? "null" : itemidstring;
+        storeidstring = string.IsNullOrEmpty(storeidstring) ? "null" : storeidstring;
+        var fromDate = from.ToString("yyyy-MM-dd") ?? "null";
+        var toDate = to.ToString("yyyy-MM-dd") ?? "null";
+
+        // Navigate to the constructed URL
+        string url = $"storemovement-report/{itemidstring}/{storeidstring}/{fromDate}/{toDate}/{InvoiceId}";
+        nv.NavigateTo(url);
+    }
+
+
+    
+}

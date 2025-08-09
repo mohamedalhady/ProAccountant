@@ -1,0 +1,57 @@
+﻿@page "/expens-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+<h3 class="mt-4 mb-4 second-color">المصاريف</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@Expenses" TItem="Expense" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedexpens>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مصروف" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Expense.ExpenseGroupId)" Title="مجموعة المصروف" Width="160px">
+            <Template Context="data">
+                @data.ExpenseGroup?.ExpenseGroupName
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(Expense.ExpenseName)" Title="اسم المصروف" Width="160px">
+
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn>
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<Expense> Expenses { get; set; }
+    public IList<Expense> selectedexpens { get; set; }
+    public string UserId { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Expenses = await unitofwork.Expenses.GetAllAsync(i => i.UserId == UserId, "ExpenseGroup");
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-expens");
+    }
+    void Edit(Expense expens)
+    {
+        nav.NavigateTo($"add-expens/{expens.ExpenseId}");
+    }
+}

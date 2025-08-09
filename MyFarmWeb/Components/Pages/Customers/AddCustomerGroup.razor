@@ -1,0 +1,135 @@
+﻿@page "/add-customer-group"
+@page "/add-customer-group/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject CustomerGroup customergroup
+@inject NavigationManager nav
+@inject DialogService dialogService
+<PageTitle>اضافة مجموعة عميل</PageTitle>
+
+<EditForm Model="customergroup" FormName="add-customer-group" class="form-control p-5 m-2 ">
+
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var item in Errors)
+                {
+                    <li>@item.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم مجموعة العميل" Component="groupname" Style="width: 100%; max-width: 200px;" />
+        <RadzenTextBox @bind-Value=customergroup.CustomerGroupName Style="width: 100%; max-width: 400px;" Name="groupname" />
+
+
+    </RadzenRow>
+
+
+    <RadzenRow>
+      
+          <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="newcustomergroup" />
+        <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="addcustomergroup" />
+
+    </RadzenRow>
+
+</EditForm>
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenButton newbtn;
+    RadzenButton Cancelbtn;
+
+    public RadzenButton addbtn { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    public bool IsValid { get; set; }
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+
+            return;
+        }
+        UserId = await service.GetUserId();
+        
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "1");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+
+    void newcustomergroup()
+    {
+        customergroup = new();
+        Errors.Clear();
+        Id = 0;
+        addbtn.Text = "حفظ";
+    }
+    async void addcustomergroup()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.CustomerGroups.UpdateOne(customergroup);
+            }
+            else
+            {
+                customergroup.UserId = UserId;
+                unitofwork.CustomerGroups.AddOne(customergroup);
+                Id = customergroup.CustomerGroupId;
+                addbtn.Text = "تعديل";
+                dialogService.Close(true);
+            }
+           
+
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+        }
+
+    }
+  
+    bool validation()
+    {
+        Errors.Clear();
+        if (string.IsNullOrEmpty(customergroup.CustomerGroupName))
+        {
+            Errors.Add("groupname", "يجب ادخال اسم مجموعة العميل");
+
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+}

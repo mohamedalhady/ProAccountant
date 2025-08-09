@@ -1,0 +1,294 @@
+﻿@page "/add-new-farm"
+@page "/add-new-farm/{Id:int}"
+@using MyFarmWeb.Components.Pages.Vendors
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NavigationManager nav
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject NewFarm newfarm
+@inject DialogService dialogService
+<PageTitle>اضافة مزرعة جديدة</PageTitle>
+@if (year == null)
+{
+    <RadzenAlert AllowClose="false" Shade="Shade.Darker" IconColor="red" AlertStyle="AlertStyle.Danger">لايوجد عام مفتوح</RadzenAlert>
+}
+else
+{
+
+      @if (Errors.Count > 0 )
+          {
+          <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+                 <ul>
+                     @foreach (var item in Errors)
+                          {
+                             <li>@item.Value</li>
+                          }
+                 </ul>
+           </RadzenAlert>
+          }
+      <RadzenRow class="mb-4">
+          <RadzenLabel Text="اسم المزرعه" Component="farmname" Style="width: 100%; max-width: 100px;" />
+          <RadzenDropDown @ref="farmname" @bind-Value=newfarm.FarmId Data=@farms ValueProperty="@nameof(Farm.FarmId)" TextProperty="@nameof(Farm.FarmName)" Style="width: 100%; max-width: 400px;" Name="farmname" Change="setsalesdate" />
+          <RadzenButton Icon="add" Click="addfarm" ></RadzenButton>
+      </RadzenRow>
+
+      <RadzenRow class="mb-4">
+          <RadzenLabel  Text="مورد العلف" Component="feedvendor" Style="width: 100%; max-width: 100px;" />
+          <RadzenDropDown @bind-Value=newfarm.FeedVendor Data=@FeedVendor ValueProperty="@nameof(Vendor.VendorId)" TextProperty="@nameof(Vendor.VendorName)" Style="width: 100%; max-width: 400px;" Name="feedvendor" />
+          <RadzenButton Icon="add" Click="addfeedvendor" ></RadzenButton>
+
+      </RadzenRow>
+      <RadzenRow class="mb-4">
+          <RadzenLabel Text="مورد الكتاكيت" Component="chickenvendor" Style="width: 100%; max-width: 100px;" />
+          <RadzenDropDown @bind-Value=newfarm.ChickenVendor Data=@ChickenVendor ValueProperty="@nameof(Vendor.VendorId)" TextProperty="@nameof(Vendor.VendorName)" Style="width: 100%; max-width: 400px;" Name="chickenvendor" />
+        <RadzenButton Icon="add" Click="addfeedvendor"></RadzenButton>
+
+
+      </RadzenRow>
+      <RadzenRow class="mb-4 mt-4">
+          <RadzenLabel Text="عدد الصوص" Style="width: 100%; max-width: 100px;" />
+          <RadzenNumeric @bind-Value="newfarm.Count" Min="1" Style="width: 100%; max-width: 400px;" TextAlign=" Radzen.TextAlign.Right"></RadzenNumeric>
+    
+
+      </RadzenRow>
+      <RadzenRow class="mb-4 mt-4">
+          <RadzenLabel Text="تاريخ الادخال" Style="width: 100%; max-width: 100px;" />
+          <RadzenDatePicker @bind-Value="newfarm.DateEntry" Style="width: 100%; max-width: 400px;" DateFormat="yyyy-MM-dd" Change="setsalesdate"> </RadzenDatePicker>
+    
+
+      </RadzenRow>
+      <RadzenRow class="mb-4 mt-4">
+          <RadzenLabel Text="تاريخ البيع" Style="width: 100%; max-width: 100px;" />
+          <RadzenDatePicker @bind-Value="newfarm.SalesDate" Style="width: 100%; max-width: 400px;" DateFormat="yyyy-MM-dd" Disabled="true"> </RadzenDatePicker>
+    
+
+      </RadzenRow>
+      <RadzenRow  >
+    
+    
+              <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="NewFarm" />
+
+               <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="InsertNewFarm" />
+
+      </RadzenRow>
+   
+ 
+
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+
+    RadzenAlert erroralert = new();
+    RadzenDropDown<int> farmname ;
+    RadzenButton newbtn;
+    RadzenButton addbtn;
+    RadzenButton Cancelbtn;
+ 
+
+    CustomFormValidation _customvalidation = new();
+    IEnumerable<Farm> farms { get; set; }
+    public string UserId { get; set; }
+    public IEnumerable<Vendor> FeedVendor { get; set; }
+    public IEnumerable<Vendor> ChickenVendor { get; set; }
+    public int StandartAge { get; set; }
+    public int FarmTypeId { get; set; }
+    public  _Year year { get; set; }
+    public Dictionary<string, string> Errors { get; set; } = new();
+    public bool IsValid { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+
+        UserId = await service.GetUserId();
+        year = unitofwork.Years.SelectOne(u => u.UserId == UserId && u.Status == false);
+
+        FeedVendor = await unitofwork.Vendors.GetAllAsync(v => v.UserId == UserId);
+        ChickenVendor = await unitofwork.Vendors.GetAllAsync(v => v.UserId == UserId);
+        farms = await unitofwork.Farms.GetAllAsync(f => f.UserId == UserId);
+
+        if (Id > 0)
+        {
+            newfarm = unitofwork.NewFarm.SelectOne(n => n.NewFarmId == Id);
+            addbtn.Text = "تعديل";
+            farmname.Disabled = true;
+
+        }
+
+    }
+
+    void NewFarm()
+    {
+        newfarm = new();
+        Errors.Clear();
+        Id = 0;
+        farmname.Disabled = false;
+    }
+
+    async void InsertNewFarm()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.NewFarm.UpdateOne(newfarm);
+            }
+            else
+            {
+                newfarm.Year = year.Year;
+                newfarm.UserId = UserId;
+                newfarm.Status = false;
+                unitofwork.NewFarm.AddOne(newfarm);
+                addbtn.Text = "تعديل";
+                Id = newfarm.NewFarmId;
+                farmname.Disabled = true;
+            }
+       
+         
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex )
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, ex.Message, "", 3000);
+        }
+
+    }
+    void setsalesdate()
+    {
+        var farm = farms.FirstOrDefault(f => f.FarmId == newfarm.FarmId);
+
+        if (farm != null)
+        {
+            FarmTypeId = farm.FarmTypeId;
+        }
+        var farmstandartage = unitofwork.FarmAgeStandard.SelectOne(g => g.FarmTypeId == FarmTypeId);
+        if (farmstandartage != null)
+        {
+            StandartAge = farmstandartage.StandardAge;
+            newfarm.SalesDate = newfarm.DateEntry.AddDays(StandartAge);
+        }
+
+
+    }
+    
+   async void addfarm()
+    {
+        Errors.Clear();
+
+        var result = await dialogService.OpenAsync<AddFarm>("اضافة مزرعة", null, new DialogOptions() { Draggable = true, Resizable = false });
+        if (result != null)
+        {
+            farms = await unitofwork.Farms.GetAllAsync(i => i.UserId == UserId);
+            StateHasChanged();
+        }
+    }
+    async  void  addfeedvendor()
+    {
+        Errors.Clear();
+        
+        var result =await  dialogService.OpenAsync<AddVendor>("اضافة مورد",null,new DialogOptions(){Draggable=true,Resizable=false});
+        if (result != null)
+        {
+            FeedVendor = await unitofwork.Vendors.GetAllAsync(i => i.UserId == UserId);
+            StateHasChanged();
+        }
+    }
+    
+    async void updateAll()
+    {
+    
+        farms = await unitofwork.Farms.GetAllAsync(i => i.UserId == UserId);
+        FeedVendor = await unitofwork.Vendors.GetAllAsync(i => i.UserId == UserId);
+        ChickenVendor = await unitofwork.Vendors.GetAllAsync(i => i.UserId == UserId);
+        StateHasChanged();
+    }
+    bool validation()
+    {
+        Errors.Clear();
+       // _customvalidation.ClearAllErrors();
+        if (Id > 0)
+        {
+            if (newfarm.FeedVendor == 0)
+            {
+                Errors.Add("feedvendor", "يجب ادخال مورد العلف");
+
+            }
+            if (newfarm.ChickenVendor == 0)
+            {
+                Errors.Add("ChickenVendor", "يجب ادخال مورد الكتاكيت");
+
+            }
+            if (newfarm.Count == 0)
+            {
+                Errors.Add("count", "يجب ادخال عدد الصوص");
+
+            }
+            if (newfarm.DateEntry.Year == 1)
+            {
+                Errors.Add("dateentry", "يجب ادخال تاريخ الادخال");
+
+            }
+        }else
+        {
+            var farmisfound = unitofwork.NewFarm.SelectOne(f => f.FarmId == newfarm.FarmId && f.UserId == UserId && f.Status == false);
+            if (farmisfound != null)
+            {
+                Errors.Add("farmisfound", "يوجد دوره مفتوحه على هذه المزرعه");
+            }
+            if (newfarm.FarmId == 0)
+            {
+                Errors.Add("farmid", "يجب ادخال اسم المزرعة");
+
+            }
+            if (newfarm.FeedVendor == 0)
+            {
+                Errors.Add("feedvendor", "يجب ادخال مورد العلف");
+
+            }
+            if (newfarm.ChickenVendor == 0)
+            {
+                Errors.Add("ChickenVendor", "يجب ادخال مورد الكتاكيت");
+
+            }
+            if (newfarm.Count == 0)
+            {
+                Errors.Add("count", "يجب ادخال عدد الصوص");
+
+            }
+            if (newfarm.DateEntry.Year == 1)
+            {
+                Errors.Add("dateentry", "يجب ادخال تاريخ الادخال");
+
+            }
+            
+        }
+       
+      
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+          //  _customvalidation.DisplayAllErrors(Errors);
+        }else
+        {
+            IsValid = true;
+           // _customvalidation.ClearAllErrors();
+        }
+        return IsValid;
+    }
+}

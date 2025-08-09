@@ -1,0 +1,154 @@
+﻿@page "/add-expens"
+@page "/add-expens/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject Expense expens
+@inject NavigationManager nav
+@inject DialogService dialogService
+<PageTitle>اضافة مضروف</PageTitle>
+
+<EditForm Model="expens" FormName="add-expens" class="form-control p-5 m-2 ">
+  
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var expens in Errors)
+                {
+                    <li>@expens.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="مجموعة المصروف" Component="farmname" Style="width: 100%; max-width: 150px;" />
+        <RadzenDropDown @ref="groupname" @bind-Value=expens.ExpenseGroupId Data=@ExpenseGroups ValueProperty="@nameof(ExpenseGroup.ExpenseGroupId)" TextProperty="@nameof(ExpenseGroup.ExpenseGroupName)" Style="width: 100%; max-width: 400px;" Name="farmname"  />
+        <RadzenButton Icon="add" Click="addexpensgroup"></RadzenButton>
+    </RadzenRow>
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم المصروف" Component="expensname" Style="width: 100%; max-width: 150px;" />
+        <RadzenTextBox @bind-Value=expens.ExpenseName  Style="width: 100%; max-width: 400px;" Name="expensname" />
+
+
+    </RadzenRow>
+   
+    <RadzenRow>
+
+        <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="NewExpense" />
+        <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="InsertExpense" />
+
+    </RadzenRow>
+
+
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenButton newbtn;
+    RadzenButton addbtn;
+    public IEnumerable<ExpenseGroup> ExpenseGroups { get; set; }
+    RadzenDropDown<int> groupname;
+
+    public bool IsValid { get; set; }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await  service.GetUserId();
+      await  updateexpensgroup();
+        if (Id > 0)
+        {
+            expens = unitofwork.Expenses.GetById(Id);
+        }
+    }
+
+    void NewExpense()
+    {
+        expens = new();
+        Id = 0;
+
+    }
+    void InsertExpense()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Expenses.UpdateOne(expens);
+            }
+            else
+            {
+                expens.UserId = UserId;
+                unitofwork.Expenses.AddOne(expens);
+                addbtn.Text = "تعديل";
+                Id = expens.ExpenseId;
+            }
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+
+        }
+
+
+    }
+    bool validation()
+    {
+        Errors.Clear();
+        if (expens.ExpenseGroupId == 0)
+        {
+            Errors.Add("expensgroup", "يجب ادخال مجموعة المصروف");
+        }
+        if (string.IsNullOrEmpty(expens.ExpenseName))
+        {
+            Errors.Add("expensname", "يجب ادخال اسم المصروف");
+
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+    async void addexpensgroup()
+    {
+        Errors.Clear();
+        var result = await dialogService.OpenAsync<AddExpensGroup>("اضافة مجموعة مصروف", null, new DialogOptions() { Draggable = true, Resizable = false });
+        if (result != null)
+        {
+          await  updateexpensgroup();
+            StateHasChanged();
+        }
+    }
+    async Task updateexpensgroup()
+    {
+        ExpenseGroups =await unitofwork.ExpenseGroups.GetAllAsync(i => i.UserId == UserId);
+        StateHasChanged();
+    }
+}

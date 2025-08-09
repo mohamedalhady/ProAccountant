@@ -1,0 +1,70 @@
+﻿@page "/vendors-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+<h3 class="mt-4 mb-4 second-color">الموردين</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@Vendors" TItem="Vendor" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedvendor>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مورد" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Vendor.VendorGroupId)"  Title="مجموعة المورد" Width="160px">
+            <Template Context="data">
+                @data.VendorGroup?.VendorGroupName
+              
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(Vendor.VendorName)" Title="اسم المورد" Width="160px" >
+
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(Vendor.Phone)" Title="التليفون" Width="160px">
+
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn>
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<Vendor> Vendors { get; set; }
+    public IList<Vendor> selectedvendor { get; set; }
+    public string UserId { get; set; }
+
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Vendors = await unitofwork.Vendors.GetAllAsync(i => i.UserId == UserId, "VendorGroup");
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "3");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-vendor");
+    }
+    void Edit(Vendor vendor)
+    {
+        nav.NavigateTo($"add-vendor/{vendor.VendorId}");
+    }
+}

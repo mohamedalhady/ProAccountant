@@ -1,0 +1,81 @@
+﻿@page "/items-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+<h3 class="mt-4 mb-4 second-color">الاصناف</h3>
+
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20"
+           AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true" Style="cursor:pointer;"
+                Data="@Items" TItem="Item" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selecteditem>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة صنف" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Item.ItemGroupId)" Title="مجموعة الصنف" Width="160px">
+            <Template Context="data">
+                @data.ItemGroup?.ItemGroupName
+            </Template>
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Property="@nameof(Item.ItemName)" Title="اسم الصنف" Width="160px"/>
+          
+     
+        <RadzenDataGridColumn Property="@nameof(Item.UnitId)" Title="الوحدة الافتراضية" Width="160px">
+            <Template Context="data">
+                @data.Unit?.UnitName
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(Item.StoreId)" Title="المخزن الافتراضي" Width="160px">
+            <Template Context="data">
+                @data.Store?.StoreName
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(Item.SalesPrice)" Title="سعر البيع" Width="160px"/>
+        <RadzenDataGridColumn Property="@nameof(Item.PurchasePrice)" Title="سعر الشراء" Width="160px"/>
+
+        
+        <RadzenDataGridColumn>
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<Item> Items { get; set; }
+    public IList<Item> selecteditem { get; set; }
+    public string UserId { get; set; }
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId =await service.GetUserId();
+        Items = await unitofwork.Items.GetAllAsync(i => i.UserId == UserId,"ItemGroup","Unit","Store");
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "5");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-item");
+    }
+    void Edit(Item item)
+    {
+        nav.NavigateTo($"add-item/{item.ItemId}");
+    }
+}

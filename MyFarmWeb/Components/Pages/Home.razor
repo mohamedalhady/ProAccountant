@@ -1,0 +1,51 @@
+﻿@page "/home"
+@using Microsoft.AspNetCore.SignalR
+@using Microsoft.AspNetCore.SignalR.Client
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+<PageTitle>Home</PageTitle>
+<ul>
+    @foreach (var item in _messages)
+    {
+        <li>@item</li>
+    }
+</ul>
+@* <button @onclick=notify>notify</button> *@
+@code{
+    // private readonly IHubContext<NotificationHub, INotificationClient> _context;
+    private HubConnection? hubConnection;
+    private readonly List<string> _messages = new();
+    protected override async Task OnInitializedAsync()
+    {
+        // hubConnection = new HubConnectionBuilder()
+        // .WithUrl("https:localhost:7126/notifications").Build();
+
+        // hubConnection.On<string>("ReceiveNotification", message =>
+        // {
+        //     _messages.Add(message);
+        //     InvokeAsync(StateHasChanged);
+        // });
+        // await hubConnection.StartAsync();
+
+    }
+    async void notify()
+    {
+        hubConnection = new HubConnectionBuilder()
+        .WithUrl("https:localhost:7126/notifications").Build();
+
+        hubConnection.On<string>("ReceiveNotification", message =>
+        {
+            _messages.Add(message);
+            InvokeAsync(StateHasChanged);
+        });
+        await hubConnection.StartAsync();
+
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

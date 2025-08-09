@@ -1,0 +1,176 @@
+﻿@page "/add-vendor"
+@page "/add-vendor/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject Vendor vendor
+@inject NavigationManager nav
+@inject DialogService dialogService
+<PageTitle >اضافة مورد</PageTitle>
+<EditForm Model="vendor" FormName="add-vendor" class="form-control p-5 m-2 ">
+  
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var item in Errors)
+                {
+                    <li>@item.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="مجموعة المورد" Component="vendorname" Style="width: 100%; max-width: 150px;" />
+        <RadzenDropDown @ref="groupname" @bind-Value=vendor.VendorGroupId Data=@VendorGroups ValueProperty="@nameof(VendorGroup.VendorGroupId)" TextProperty="@nameof(VendorGroup.VendorGroupName)" Style="width: 100%; max-width: 400px;" Name="vendorname" />
+        <RadzenButton Icon="add" Click="addvendorgroup" @ref="btnpopup"></RadzenButton>
+    </RadzenRow>
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم المورد" Component="vendorname" Style="width: 100%; max-width: 150px;" />
+        <RadzenTextBox @bind-Value=vendor.VendorName  Style="width: 100%; max-width: 400px;" Name="vendorname" />
+    </RadzenRow>
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="التليفون" Component="vendorphone" Style="width: 100%; max-width: 150px;" />
+        <RadzenTextBox @bind-Value=vendor.Phone Style="width: 100%; max-width: 400px;" Name="vendorphone" />
+    </RadzenRow>
+    <RadzenRow>
+       
+        <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="NewVendor" />
+        <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="InsertVendor" />
+
+    </RadzenRow>
+
+
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenButton newbtn;
+    RadzenButton addbtn;
+    public IEnumerable<VendorGroup> VendorGroups { get; set; }
+    RadzenDropDown<int> groupname;
+    [Parameter]
+    public Popup OutPopup { get; set; }
+    Popup popup;
+    public bool IsValid { get; set; }
+    RadzenButton btnpopup;
+    RadzenButton Cancelbtn;
+  
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        await updatevendorgroup();
+        if (Id > 0)
+        {
+            vendor = unitofwork.Vendors.GetById(Id);
+        }
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "3");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void NewVendor()
+    {
+        vendor = new();
+        Id = 0;
+        Errors.Clear();
+    }
+    async void InsertVendor()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Vendors.UpdateOne(vendor);
+            }
+            else
+            {
+                vendor.UserId = UserId;
+                unitofwork.Vendors.AddOne(vendor);
+                addbtn.Text = "تعديل";
+                Id = vendor.VendorId;
+                dialogService.Close(true);
+            }
+          
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+
+        }
+
+
+    }
+ 
+    bool validation()
+    {
+        Errors.Clear();
+        if (vendor.VendorGroupId == 0)
+        {
+            Errors.Add("vendorgroup", "يجب ادخال مجموعة المورد");
+        }
+        if (string.IsNullOrEmpty(vendor.VendorName))
+        {
+            Errors.Add("vendorname", "يجب ادخال اسم المورد");
+
+        }
+        if (!string.IsNullOrEmpty(vendor.Phone))
+        {
+            if (vendor.Phone.Length > 11 || vendor.Phone.Length < 11)
+            {
+                Errors.Add("vendorphone", "يجب ادخال التليفون بشكل صحيح");
+            }
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+  async  void addvendorgroup()
+    {
+        Errors.Clear();
+        var result = await dialogService.OpenAsync<AddVendorGroup>("اضافة مجموعة مورد", null, new DialogOptions() { Draggable = true, Resizable = false, Width = "800px" });
+        if (result != null)
+        {
+            await updatevendorgroup();
+            StateHasChanged();
+        }
+    }
+    async Task updatevendorgroup()
+    {
+        VendorGroups = await unitofwork.VendorGroups.GetAllAsync(i => i.UserId == UserId);
+        StateHasChanged();
+    }
+}

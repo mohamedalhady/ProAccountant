@@ -1,0 +1,22 @@
+﻿:root {
+    --main-font: "Noto Kufi Arabic", sans-serif;
+    --first-color : #08526d; 
+     --second-color :#ec1c23;
+}
+body{
+    font-family:var(--main-font);
+}
+.navbar{
+    background:var(--first-color);
+    
+}
+    .navbar .nav-link, .navbar a {
+        color: white;
+        
+    }
+        .navbar a, .navbar a:hover, .navbar a:focus {
+            text-decoration: none;
+        }
+    .navbar .active{
+        background:var(--second-color)
+    }

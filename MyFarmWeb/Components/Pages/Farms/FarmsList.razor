@@ -1,0 +1,63 @@
+﻿@page "/farms-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+
+<h3 class="mt-4 mb-4 second-color">قائمة المزارع</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@FarmList" TItem="Farm" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedFarm>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مزرعة" Click="@add"  />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Farm.FarmName)"  Title="اسم المزرعه"  Width="160px" >
+           @*  <Template Context="data">
+                @data.FarmName
+            </Template> *@
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn Property="@nameof(FarmType.FarmTypeId)"  Title="نوع المزرعه" Width="160px" >
+            <Template Context="data">
+                @data.FarmType?.FameTypeName
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn>
+            <Template Context="data">
+                <RadzenButton  Click="@(args => Edit(data.FarmId))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+        
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+
+    public IEnumerable<Farm> FarmList { get; set; }
+    IList<Farm> selectedFarm;
+    public string UserId { get; set; } = "";
+    protected override  async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        FarmList = await unitofwork.Farms.GetAllAsync(y => y.UserId == UserId, "FarmType");
+    }
+
+    async Task Edit (int id)
+    {
+        nav.NavigateTo($"/add-farm/{id}");
+    }
+
+    void add()
+    {
+        nav.NavigateTo("/add-farm");
+    }
+   
+
+}

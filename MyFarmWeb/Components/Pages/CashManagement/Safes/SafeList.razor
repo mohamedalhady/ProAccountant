@@ -1,0 +1,58 @@
+﻿@page "/safe-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+@inject LayoutState layoutState
+<title>الخزن</title>
+<h3 class="mt-4 mb-4 second-color">الخزن</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@Safes" TItem="Safe" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedsafe>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة خزينة" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(Safe.SafeName)" Title="اسم الخزينة" Width="160px" Sortable="true" Filterable="true">
+
+        </RadzenDataGridColumn>
+
+        <RadzenDataGridColumn Sortable="false" Filterable="false">
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<Safe> Safes { get; set; }
+    public IList<Safe> selectedsafe { get; set; }
+    public string UserId { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Safes = await unitofwork.Safe.GetAllAsync(g => g.UserId == UserId);
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "6");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-safe");
+    }
+    void Edit(Safe safe)
+    {
+        nav.NavigateTo($"/add-safe/{safe.SafeId}");
+    }
+}

@@ -1,0 +1,158 @@
+﻿@page "/add-farm"
+@page "/add-farm/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+@inject Farm farm
+@inject DialogService dialogService
+@inject NavigationManager nav
+
+    
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var item in Errors)
+                {
+                    <li>@item.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+                 
+                    <RadzenRow class="mb-4 mt-4">
+                       <RadzenLabel Text="اسم المزرعه" Style="width: 100%; max-width: 100px;" />
+                        <RadzenTextBox @bind-Value="farm.FarmName" Style="width: 100%; max-width: 400px;"></RadzenTextBox>
+                    @* <ValidationMessage For="() => farm.FarmName"></ValidationMessage> *@
+                    </RadzenRow>
+                    <RadzenRow class="mb-4">
+                        <RadzenLabel Text="نوع الصوص" Component="farmtype" Style="width: 100%; max-width: 100px;" />
+                        <RadzenDropDown @bind-Value=@farm.FarmTypeId Data=@FarmsType ValueProperty="@nameof(FarmType.FarmTypeId)" TextProperty="@nameof(FarmType.FameTypeName)" Style="width: 100%; max-width: 400px;" Name="farmtype" />
+                   @*      <ValidationMessage For="() => farm.FarmTypeId "></ValidationMessage> *@
+                   </RadzenRow>
+                   
+                    <RadzenRow>
+                    
+                          <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="NewFarm" />
+                           <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="AddNewFarm" />
+
+                      </RadzenRow>
+        
+
+
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [Parameter]
+    public Popup popup { get; set; }
+    [Parameter]
+    public System.Action ClosePopup { get; set; }
+    RadzenAlert erroralert;
+    public string UserId { get; set; } = "";
+    public IEnumerable<FarmType> FarmsType { get; set; }
+    RadzenButton addbtn;
+    RadzenButton newbtn;
+    RadzenButton Cancelbtn;
+    public Dictionary<string, string> Errors = new();
+    public bool IsValid { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+        UserId = await service.GetUserId();
+        FarmsType = await unitofwork.FarmType.GetAllAsync();
+        if (Id > 0)
+        {
+            farm =  unitofwork.Farms.SelectOne(f => f.FarmId == Id);
+        }
+    }
+    async void AddNewFarm()
+    {
+
+        try
+        {
+
+            Validate();
+            if ( !IsValid)
+            {
+
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Farms.UpdateOne(farm);
+
+            }
+            else
+            {
+                farm.UserId = UserId;
+                farm.FarmName =  farm.FarmName;
+                unitofwork.Farms.AddOne(farm);
+                addbtn.Disabled = true;
+                dialogService.Close(true);
+            }
+         
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+            Errors.Clear();
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "يوجد خطأ", ex.Message, 5000);
+        }
+
+    }
+    void NewFarm()
+    {
+        farm = new();
+        Id = 0;
+        Errors.Clear();
+        addbtn.Disabled = false;
+    }
+   
+    bool Validate()
+    {
+        Errors.Clear();
+       
+        if (string.IsNullOrEmpty(farm.FarmName))
+        {
+         
+            Errors.Add("FarmName", "يجب ادخال اسم المزرعه");
+           
+        }
+        if (farm.FarmTypeId == 0)
+        {
+            
+            Errors.Add("FarmTypeId", "يجب ادخال نوع المزرعه");
+           
+        }
+
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+         
+
+        }
+        else
+        {
+            IsValid = true;
+        
+        }
+     
+       
+        return IsValid;
+      
+    }
+
+}

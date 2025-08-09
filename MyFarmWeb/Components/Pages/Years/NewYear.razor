@@ -1,0 +1,781 @@
+﻿@page "/add-year"
+@using Radzen.Blazor
+@rendermode InteractiveServer
+<PageTitle>تصميم شاشة إضافة السنة المالية - Radzen</PageTitle>
+
+<div class="year-form-radzen">
+    <!-- رأس الصفحة -->
+    <RadzenCard class="page-header-card">
+        <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenColumn Size="8">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="event" Style="font-size: 48px; color: #667eea;" />
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText TextStyle="TextStyle.H3" Style="color: white; margin: 0;">
+                            إضافة سنة مالية جديدة
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Body1" Style="color: rgba(255,255,255,0.9); margin: 0;">
+                            أدخل بيانات السنة المالية الجديدة للنظام
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn Size="4">
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                    <RadzenButton Text="العودة للقائمة" 
+                                 Icon="arrow_back" 
+                                 ButtonStyle="ButtonStyle.Light" 
+                                 Size="ButtonSize.Medium" />
+                    <RadzenButton Text="المساعدة" 
+                                 Icon="help" 
+                                 ButtonStyle="ButtonStyle.Secondary" 
+                                 Size="ButtonSize.Medium" />
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    <!-- شريط التقدم -->
+    <RadzenCard class="progress-card">
+        <RadzenSteps>
+            <RadzenStepsItem Text="البيانات الأساسية" Icon="info" />
+            <RadzenStepsItem Text="التواريخ" Icon="date_range" />
+            <RadzenStepsItem Text="المراجعة والحفظ" Icon="save" />
+        </RadzenSteps>
+    </RadzenCard>
+
+    <!-- النموذج الرئيسي -->
+    <RadzenRow Gap="2rem">
+        <!-- العمود الرئيسي -->
+        <RadzenColumn Size="12" SizeLG="8">
+            <!-- القسم الأول: البيانات الأساسية -->
+            <RadzenCard class="form-section-card">
+                <RadzenStack Gap="1.5rem">
+                    <!-- رأس القسم -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="info" Style="font-size: 32px; color: #667eea;" />
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText TextStyle="TextStyle.H5" Style="margin: 0; color: #333;">
+                                البيانات الأساسية
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                أدخل المعلومات الأساسية للسنة المالية
+                            </RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+
+                    <RadzenSeparator />
+
+                    <!-- حقول البيانات الأساسية -->
+                    <RadzenRow Gap="1rem">
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="اسم السنة المالية" Style="font-weight: 600;" />
+                                <RadzenNumeric @bind-Value="@yearName" 
+                                              Placeholder="مثال: 2024"
+                                              Min="1900" 
+                                              Max="2100"
+                                              Style="width: 100%;" />
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: #6c757d;">
+                                    أدخل السنة بالأرقام (مثال: 2024)
+                                </RadzenText>
+                            </RadzenStack>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="حالة السنة المالية" Style="font-weight: 600;" />
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenSwitch @bind-Value="@isActive" />
+                                    <RadzenBadge BadgeStyle="@(isActive ? BadgeStyle.Success : BadgeStyle.Secondary)" 
+                                                Text="@(isActive ? "نشطة" : "غير نشطة")" />
+                                </RadzenStack>
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: #6c757d;">
+                                    يمكن أن تكون سنة واحدة فقط نشطة
+                                </RadzenText>
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenStack>
+            </RadzenCard>
+
+            <!-- القسم الثاني: التواريخ -->
+            <RadzenCard class="form-section-card">
+                <RadzenStack Gap="1.5rem">
+                    <!-- رأس القسم -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="date_range" Style="font-size: 32px; color: #667eea;" />
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText TextStyle="TextStyle.H5" Style="margin: 0; color: #333;">
+                                فترة السنة المالية
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                حدد تاريخ بداية ونهاية السنة المالية
+                            </RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+
+                    <RadzenSeparator />
+
+                    <!-- حقول التواريخ -->
+                    <RadzenRow Gap="1rem">
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="تاريخ بداية السنة المالية" Style="font-weight: 600;" />
+                                <RadzenDatePicker @bind-Value="@fromDate" 
+                                                 DateFormat="dd/MM/yyyy"
+                                                 Style="width: 100%;" />
+                            </RadzenStack>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="6">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="تاريخ نهاية السنة المالية" Style="font-weight: 600;" />
+                                <RadzenDatePicker @bind-Value="@toDate" 
+                                                 DateFormat="dd/MM/yyyy"
+                                                 Style="width: 100%;" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <!-- معاينة التواريخ -->
+                    <RadzenCard class="date-preview-card">
+                        <RadzenStack Gap="1rem">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                <RadzenIcon Icon="visibility" Style="color: #667eea;" />
+                                <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; color: #333;">
+                                    معاينة فترة السنة المالية
+                                </RadzenText>
+                            </RadzenStack>
+
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenColumn Size="4">
+                                    <RadzenCard class="date-item-card">
+                                        <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: #666; margin: 0;">من</RadzenText>
+                                            <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; color: #333;">
+                                                @(fromDate?.ToString("dd/MM/yyyy") ?? "غير محدد")
+                                            </RadzenText>
+                                        </RadzenStack>
+                                    </RadzenCard>
+                                </RadzenColumn>
+
+                                <RadzenColumn Size="4">
+                                    <RadzenStack AlignItems="AlignItems.Center">
+                                        <RadzenIcon Icon="arrow_forward" Style="font-size: 32px; color: #667eea;" />
+                                    </RadzenStack>
+                                </RadzenColumn>
+
+                                <RadzenColumn Size="4">
+                                    <RadzenCard class="date-item-card">
+                                        <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                            <RadzenText TextStyle="TextStyle.Caption" Style="color: #666; margin: 0;">إلى</RadzenText>
+                                            <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; color: #333;">
+                                                @(toDate?.ToString("dd/MM/yyyy") ?? "غير محدد")
+                                            </RadzenText>
+                                        </RadzenStack>
+                                    </RadzenCard>
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            <RadzenRow>
+                                <RadzenColumn Size="6">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="schedule" Style="color: #28a745;" />
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0;">
+                                            @GetDaysCount() يوم
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenColumn>
+                                <RadzenColumn Size="6">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="@(IsValidDateRange() ? "check_circle" : "error")" 
+                                                   />
+                                        <RadzenText TextStyle="TextStyle.Body2" 
+                                                  >
+                                            @(IsValidDateRange() ? "التواريخ صحيحة" : "التواريخ غير صحيحة")
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenStack>
+            </RadzenCard>
+
+            <!-- القسم الثالث: معلومات إضافية -->
+            <RadzenCard class="form-section-card">
+                <RadzenStack Gap="1.5rem">
+                    <!-- رأس القسم -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="analytics" Style="font-size: 32px; color: #667eea;" />
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText TextStyle="TextStyle.H5" Style="margin: 0; color: #333;">
+                                معلومات إضافية
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                تفاصيل ومعلومات تكميلية
+                            </RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+
+                    <RadzenSeparator />
+
+                    <!-- بطاقات المعلومات -->
+                    <RadzenRow Gap="1rem">
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenCard class="info-card">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenIcon Icon="person" Style="font-size: 32px; color: #667eea;" />
+                                    <RadzenStack Gap="0.25rem">
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: #666; margin: 0;">
+                                            المستخدم المنشئ
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                            أحمد محمد
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenCard class="info-card">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenIcon Icon="access_time" Style="font-size: 32px; color: #667eea;" />
+                                    <RadzenStack Gap="0.25rem">
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: #666; margin: 0;">
+                                            تاريخ الإنشاء
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                            اليوم - 14:30
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenCard class="info-card">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenIcon Icon="business" Style="font-size: 32px; color: #667eea;" />
+                                    <RadzenStack Gap="0.25rem">
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: #666; margin: 0;">
+                                            الشركة
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                            شركة النظام
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenCard>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenStack>
+            </RadzenCard>
+
+            <!-- التنبيهات -->
+            <RadzenStack Gap="1rem">
+                <RadzenAlert AlertStyle="AlertStyle.Success" 
+                            Variant="Variant.Flat" 
+                            Size="AlertSize.Medium"
+                            Shade="Shade.Light">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="check_circle" Style="font-size: 24px;" />
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                البيانات صحيحة
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0;">
+                                جميع البيانات المدخلة صحيحة ويمكن حفظها
+                            </RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenAlert>
+
+                <RadzenAlert AlertStyle="AlertStyle.Warning" 
+                            Variant="Variant.Flat" 
+                            Size="AlertSize.Medium"
+                            Shade="Shade.Light">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="warning" Style="font-size: 24px;" />
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                تنبيه
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0;">
+                                سيتم إلغاء تفعيل السنة المالية الحالية عند تفعيل هذه السنة
+                            </RadzenText>
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenAlert>
+            </RadzenStack>
+
+            <!-- أزرار الإجراءات -->
+            <RadzenCard class="actions-card">
+                <RadzenStack Gap="1.5rem">
+                    <!-- الأزرار الرئيسية -->
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                        <RadzenButton Text="حفظ السنة المالية" 
+                                     Icon="save" 
+                                     ButtonStyle="ButtonStyle.Primary" 
+                                     Size="ButtonSize.Large"
+                                     Style="min-width: 200px;" />
+                        <RadzenButton Text="حفظ وتفعيل" 
+                                     Icon="save_alt" 
+                                     ButtonStyle="ButtonStyle.Success" 
+                                     Size="ButtonSize.Large"
+                                     Style="min-width: 200px;" />
+                    </RadzenStack>
+
+                    <!-- الأزرار الثانوية -->
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="0.5rem">
+                        <RadzenButton Text="معاينة" 
+                                     Icon="preview" 
+                                     ButtonStyle="ButtonStyle.Light" 
+                                     Size="ButtonSize.Medium" />
+                        <RadzenButton Text="مسح النموذج" 
+                                     Icon="clear" 
+                                     ButtonStyle="ButtonStyle.Secondary" 
+                                     Size="ButtonSize.Medium" />
+                        <RadzenButton Text="إلغاء" 
+                                     Icon="cancel" 
+                                     ButtonStyle="ButtonStyle.Light" 
+                                     Size="ButtonSize.Medium" />
+                    </RadzenStack>
+
+                    <!-- اختصارات لوحة المفاتيح -->
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="F8 - حفظ" />
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="Esc - إلغاء" />
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="Ctrl+S - حفظ سريع" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <!-- الشريط الجانبي للمساعدة -->
+        <RadzenColumn Size="12" SizeLG="4">
+            <RadzenCard class="help-card sticky-card">
+                <RadzenStack Gap="1.5rem">
+                    <!-- رأس المساعدة -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="help_outline" Style="font-size: 32px; color: #667eea;" />
+                        <RadzenText TextStyle="TextStyle.H5" Style="margin: 0; color: #333;">
+                            المساعدة والإرشادات
+                        </RadzenText>
+                    </RadzenStack>
+
+                    <RadzenSeparator />
+
+                    <!-- عناصر المساعدة -->
+                    <RadzenStack Gap="1rem">
+                        <RadzenCard class="help-item-card">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem">
+                                <RadzenIcon Icon="lightbulb" Style="color: #ffc107; font-size: 24px;" />
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                        نصيحة
+                                    </RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0; line-height: 1.5;">
+                                        يُنصح بأن تكون السنة المالية من 1 يناير إلى 31 ديسمبر
+                                    </RadzenText>
+                                </RadzenStack>
+                            </RadzenStack>
+                        </RadzenCard>
+
+                        <RadzenCard class="help-item-card">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem">
+                                <RadzenIcon Icon="info" Style="color: #17a2b8; font-size: 24px;" />
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                        معلومة
+                                    </RadzenText>
+                                    <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0; line-height: 1.5;">
+                                        يمكن أن تكون سنة مالية واحدة فقط نشطة في نفس الوقت
+                                    </RadzenText>
+                                </RadzenStack>
+                            </RadzenStack>
+                        </RadzenCard>
+
+                        <RadzenCard class="help-item-card">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="1rem">
+                                <RadzenIcon Icon="keyboard" Style="color: #6f42c1; font-size: 24px;" />
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                        اختصارات لوحة المفاتيح
+                                    </RadzenText>
+                                    <RadzenStack Gap="0.25rem">
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0;">
+                                            F8 - حفظ النموذج
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0;">
+                                            Esc - إلغاء والعودة
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="margin: 0;">
+                                            Ctrl+S - حفظ سريع
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenStack>
+                        </RadzenCard>
+                    </RadzenStack>
+
+                    <!-- إحصائيات سريعة -->
+                    <RadzenSeparator />
+                    
+                    <RadzenStack Gap="1rem">
+                        <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; color: #333;">
+                            إحصائيات سريعة
+                        </RadzenText>
+                        
+                        <RadzenRow Gap="0.5rem">
+                            <RadzenColumn Size="6">
+                                <RadzenCard class="stat-mini-card">
+                                    <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="event" Style="color: #667eea; font-size: 20px;" />
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                            السنوات المالية
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; color: #333;">
+                                            5
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+                            
+                            <RadzenColumn Size="6">
+                                <RadzenCard class="stat-mini-card">
+                                    <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="check_circle" Style="color: #28a745; font-size: 20px;" />
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                            السنة النشطة
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.H6" Style="margin: 0; color: #333;">
+                                            2024
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+</div>
+
+@code {
+    private int yearName = 2024;
+    private bool isActive = false;
+    private DateTime? fromDate = new DateTime(2024, 1, 1);
+    private DateTime? toDate = new DateTime(2024, 12, 31);
+
+    private int GetDaysCount()
+    {
+        if (fromDate.HasValue && toDate.HasValue && IsValidDateRange())
+        {
+            return (toDate.Value - fromDate.Value).Days + 1;
+        }
+        return 0;
+    }
+
+    private bool IsValidDateRange()
+    {
+        return fromDate.HasValue && toDate.HasValue && fromDate.Value < toDate.Value;
+    }
+}
+
+<style>
+    .year-form-radzen {
+        padding: 20px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        font-family: 'Cairo', 'Segoe UI', sans-serif;
+        direction: rtl;
+    }
+
+    /* رأس الصفحة */
+    .page-header-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin-bottom: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        border: none;
+    }
+
+    /* شريط التقدم */
+    .progress-card {
+        margin-bottom: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+
+    /* بطاقات الأقسام */
+    .form-section-card {
+        margin-bottom: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .form-section-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+    }
+
+    /* بطاقة معاينة التواريخ */
+    .date-preview-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 2px dashed #dee2e6;
+        border-radius: 15px;
+    }
+
+    .date-item-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+
+    /* بطاقات المعلومات */
+    .info-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-left: 4px solid #667eea;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        border-top: none;
+        border-right: none;
+        border-bottom: none;
+    }
+
+    .info-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    /* بطاقة الإجراءات */
+    .actions-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+
+    /* بطاقة المساعدة */
+    .help-card {
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border: none;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    .sticky-card {
+        position: sticky;
+        top: 20px;
+    }
+
+    .help-item-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .help-item-card:hover {
+        background: #e9ecef;
+        transform: translateX(-5px);
+    }
+
+    /* بطاقات الإحصائيات المصغرة */
+    .stat-mini-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 10px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .stat-mini-card:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    /* تخصيص مكونات Radzen */
+    :deep(.rz-button.rz-primary) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-button.rz-primary:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    :deep(.rz-button.rz-success) {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-button.rz-success:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+    }
+
+    :deep(.rz-button.rz-light) {
+        background: #f8f9fa;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-button.rz-light:hover) {
+        background: #e9ecef;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    :deep(.rz-button.rz-secondary) {
+        background: #6c757d;
+        border: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-button.rz-secondary:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.3);
+    }
+
+    /* تخصيص حقول الإدخال */
+    :deep(.rz-textbox),
+    :deep(.rz-numeric),
+    :deep(.rz-datepicker) {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-textbox:focus),
+    :deep(.rz-numeric:focus),
+    :deep(.rz-datepicker:focus) {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    /* تخصيص مفتاح التبديل */
+    :deep(.rz-switch) {
+        border-radius: 15px;
+    }
+
+    :deep(.rz-switch.rz-state-on) {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+
+    /* تخصيص الخطوات */
+    :deep(.rz-steps) {
+        justify-content: center;
+    }
+
+    :deep(.rz-steps-item) {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    :deep(.rz-steps-item-icon) {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-steps-item.rz-state-complete .rz-steps-item-icon),
+    :deep(.rz-steps-item.rz-state-current .rz-steps-item-icon) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        transform: scale(1.1);
+    }
+
+    /* تخصيص التنبيهات */
+    :deep(.rz-alert) {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    /* تخصيص الشارات */
+    :deep(.rz-badge) {
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-weight: 500;
+    }
+
+    /* تحسينات الاستجابة */
+    @@media (max-width: 768px) {
+        .year-form-radzen {
+            padding: 10px;
+        }
+
+        .sticky-card {
+            position: static;
+        }
+
+        :deep(.rz-button) {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    }
+
+    /* تأثيرات الحركة */
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-section-card {
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    .form-section-card:nth-child(2) {
+        animation-delay: 0.1s;
+    }
+
+    .form-section-card:nth-child(3) {
+        animation-delay: 0.2s;
+    }
+
+    .form-section-card:nth-child(4) {
+        animation-delay: 0.3s;
+    }
+
+    /* تحسينات إضافية */
+    :deep(.rz-card) {
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-icon) {
+        transition: all 0.3s ease;
+    }
+
+    .info-card:hover :deep(.rz-icon) {
+        transform: scale(1.1) rotate(5deg);
+    }
+</style>

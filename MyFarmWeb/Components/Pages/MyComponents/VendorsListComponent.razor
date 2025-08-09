@@ -1,0 +1,62 @@
+﻿@inject Service service
+@rendermode InteractiveServer
+@inject IUnitOfWork unitofwork
+<RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+    <div @onkeydown=HandleKeydownCustomer>
+        <RadzenDropDownDataGrid Placeholder="اختر المورد..." @ref="vendorcontrol" FocusFilterOnPopup="true" ShowSearch="false" Change="vendorchange" SearchTextPlaceholder="بحث" Style="width:100%;"
+                               Value="this.Value" TValue="int"  ValueChanged=@this.ValueChanged Data=@Vendors AllowFilteringByAllStringColumns="true" 
+                              AllowClear=true  TextProperty="@nameof(Vendor.VendorName)" ValueProperty="@nameof(Vendor.VendorId)" AllowFiltering="true" Name="DropDownDatavendor">
+            <Columns>
+                <RadzenDropDownDataGridColumn Property="@nameof(Vendor.VendorId)" Title="كود المورد" />
+                <RadzenDropDownDataGridColumn Property="@nameof(Vendor.VendorName)" Title="اسم المورد" Width="100%" />
+            </Columns>
+        </RadzenDropDownDataGrid>
+        <RadzenAlert Visible=@VendorError AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.ExtraSmall" Text="يجب ادخال المورد" />
+
+    </div>
+</RadzenStack>
+@code {
+    [Parameter]
+    public int Value { get; set; }
+    [Parameter]
+    public IService jsservice { get; set; }
+ 
+    [Parameter]
+    public string TabToControlUniqeId { get; set; }
+    [Parameter]
+    public bool VendorError { get; set; }
+    
+    [Parameter]
+    public int VendorId { get; set; }
+    IEnumerable<Vendor> Vendors;
+    [Parameter]
+    public RadzenDropDownDataGrid<int> vendorcontrol { get; set; }
+    public string UserId { get; set; }
+    [Parameter]
+    public EventCallback<int> ValueChanged { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        UserId = await service.GetUserId();
+        Vendors = await unitofwork.Vendors.GetAllAsync(v => v.UserId == UserId);
+    }
+    public async void HandleKeydownCustomer(KeyboardEventArgs e)
+
+    {
+        if (e.Key == "Enter")
+        {
+
+            await jsservice.SelectAllTextToFisrtChild(() => TabToControlUniqeId);
+        }
+
+    }
+    private async Task OnValueChanged(int value) => await this.ValueChanged.InvokeAsync(value);
+       
+    void vendorchange()
+    {
+        if (VendorId > 0)
+        {
+            VendorError = false;
+        }
+    }
+
+}

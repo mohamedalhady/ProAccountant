@@ -1,0 +1,124 @@
+﻿@page "/vendoraccountstatement_report_selector"
+@rendermode InteractiveServer
+@layout Layout.EmptyLayout
+@inject IUnitOfWork unitofwork
+@inject Service service
+@inject MyFarmWeb.Data.MyFarmContext db
+@inject NavigationManager nv
+<RadzenCard class="rz-my-6">
+    <RadzenStack Gap="20px">
+
+      
+        <RadzenRow>
+
+
+            <RadzenLabel Component="from">من تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=from Style="margin-right:40px;" Name="from" />
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="to">الى تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=to Style="margin-right:40px;" Name="to" />
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="DropDownvendor">المورد</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridvendor ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=VendorsId Data=@Vendors AllowClear="true"
+                                        TextProperty="@nameof(Vendor.VendorName)" ValueProperty="@nameof(Vendor.VendorId)" AllowFiltering="true" Name="DropDownvendor">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "select all" }})" Disabled="@(!gridvendor.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => VendorsId = args ? gridvendor.View.Cast<Vendor>().Select(c => c.VendorId) : VendorsId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "select item" }})" TriState="false" Value="@(VendorsId != null && VendorsId.Contains(((Vendor) data).VendorId))"
+                                                TValue="bool" Change=@(args => gridvendor.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Vendor.VendorId)" Title="كود المورد" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Vendor.VendorName)" Title="اسم المورد" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+      
+    
+
+    </RadzenStack>
+    <RadzenButton Text="تنفيذ" Icon="save" Click="search" Style="margin-right:100px;margin-top:20px;"></RadzenButton>
+</RadzenCard>
+
+
+
+@code {
+    public int InvoiceId { get; set; }
+    RadzenDropDownDataGrid<IEnumerable<int>> gridvendor;
+      public int VendorId { get; set; }
+    IEnumerable<Vendor> Vendors;
+     IEnumerable<int> VendorsId = new int[] { };
+
+    public string vendoridstring { get; set; } = "";
+    public DateTime from { get; set; }
+    public DateTime to { get; set; }
+    public string UserId { get; set; }
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!await service.IsAuth())
+        {
+            nv.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Vendors = await unitofwork.Vendors.GetAllAsync(v => v.UserId == UserId);
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "3");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void search()
+
+    {
+
+
+        if (VendorsId != null && VendorsId.Any())
+        {
+            foreach (var item in VendorsId)
+            {
+                if (string.IsNullOrEmpty(vendoridstring))
+                {
+                    vendoridstring = item.ToString();
+
+                }
+                else
+                {
+                    vendoridstring = vendoridstring + "," + item.ToString();
+                }
+
+            }
+        }
+     
+       
+        // Default each parameter to "null" if it's empty or null
+        vendoridstring = string.IsNullOrEmpty(vendoridstring) ? "null" : vendoridstring;
+          var fromDate = from.ToString("yyyy-MM-dd") ?? "null";
+        var toDate = to.ToString("yyyy-MM-dd") ?? "null";
+
+        // Navigate to the constructed URL
+        string url = $"vendoraccountstatement-report/{vendoridstring}/{fromDate}/{toDate}";
+        nv.NavigateTo(url);
+    }
+
+
+  
+}

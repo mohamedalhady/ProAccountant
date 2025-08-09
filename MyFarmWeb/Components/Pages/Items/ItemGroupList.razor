@@ -1,0 +1,59 @@
+﻿@page "/item-group-list"
+@inject NavigationManager nav
+@inject IUnitOfWork unitofwork
+@rendermode InteractiveServer
+@inject Service service
+<h3 class="mt-4 mb-4 second-color">مجموعات الاصناف</h3>
+<RadzenDataGrid class="mb-5" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="20" AllowPaging="true" PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@ItemGroups" TItem="ItemGroup" ColumnWidth="50px" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single" @bind-Value=@selectedgroup>
+
+    <HeaderTemplate>
+        <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مزرعة" Click="@add" />
+    </HeaderTemplate>
+    <Columns>
+
+
+        <RadzenDataGridColumn Property="@nameof(ItemGroup.ItemGroupName)" Title="مجموعة الصنف" Width="160px">
+          
+        </RadzenDataGridColumn>
+       
+        <RadzenDataGridColumn>
+            <Template Context="data">
+                <RadzenButton Click="@(args => Edit(data))" Icon="edit"></RadzenButton>
+            </Template>
+        </RadzenDataGridColumn>
+
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    public IEnumerable<ItemGroup> ItemGroups { get; set; }
+    public IList<ItemGroup> selectedgroup { get; set; }
+    public string UserId { get; set; }
+
+    [Inject]
+    public LayoutState layoutState { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId =await service.GetUserId();
+        ItemGroups =await unitofwork.ItemGroups.GetAllAsync(g => g.UserId == UserId);
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "5");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void add()
+    {
+        nav.NavigateTo("/add-item-group");
+    }
+    void Edit(ItemGroup itemGroup)
+    {
+        nav.NavigateTo($"/add-item-group/{itemGroup.ItemGroupId}");
+    }
+}

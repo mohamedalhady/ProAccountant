@@ -1,0 +1,790 @@
+﻿@page "/filter-form-radzen"
+@using Radzen.Blazor
+@rendermode InteractiveServer
+<PageTitle>نموذج البحث والتصفية - Radzen</PageTitle>
+
+<div class="filter-form-container">
+    <!-- رأس الصفحة -->
+    <RadzenCard class="header-card">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                <RadzenIcon Icon="filter_list" Style="font-size: 48px; color: white;" />
+                <RadzenStack Gap="0.25rem">
+                    <RadzenText TextStyle="TextStyle.H3" Style="color: white; margin: 0;">
+                        نموذج البحث والتصفية
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.Body1" Style="color: rgba(255,255,255,0.9); margin: 0;">
+                        استخدم المرشحات أدناه للبحث عن البيانات المطلوبة
+                    </RadzenText>
+                </RadzenStack>
+            </RadzenStack>
+            
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                <RadzenButton Text="مسح المرشحات" 
+                             Icon="clear_all" 
+                             ButtonStyle="ButtonStyle.Light" 
+                             Size="ButtonSize.Medium"
+                             Click="@ClearFilters" />
+                <RadzenButton Text="حفظ المرشح" 
+                             Icon="bookmark" 
+                             ButtonStyle="ButtonStyle.Secondary" 
+                             Size="ButtonSize.Medium" />
+            </RadzenStack>
+        </RadzenStack>
+    </RadzenCard>
+
+    <!-- النموذج الرئيسي -->
+    <RadzenCard class="main-form-card">
+        <RadzenStack Gap="2rem">
+            <!-- قسم المرشحات -->
+            <RadzenStack Gap="1.5rem">
+                <!-- رأس قسم المرشحات -->
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="tune" Style="font-size: 32px; color: #667eea;" />
+                    <RadzenStack Gap="0.25rem">
+                        <RadzenText TextStyle="TextStyle.H5" Style="margin: 0; color: #333;">
+                            معايير البحث
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                            حدد المعايير للبحث والتصفية
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenStack>
+
+                <RadzenSeparator />
+
+                <!-- مرشحات التاريخ -->
+                <RadzenFieldset Text="فترة التاريخ" class="date-fieldset">
+                    <RadzenRow Gap="1.5rem" AlignItems="AlignItems.End">
+                        <RadzenColumn Size="12" SizeMD="5">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="من تاريخ" Style="font-weight: 600; color: #495057;" />
+                                <RadzenDatePicker @bind-Value="@fromDate" 
+                                                 DateFormat="dd/MM/yyyy"
+                                                 Placeholder="اختر تاريخ البداية"
+                                                 Style="width: 100%;"
+                                                 ShowCalendarWeek="true"
+                                                 class="custom-datepicker" />
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: #6c757d; margin: 0;">
+                                    تاريخ بداية الفترة المطلوبة
+                                </RadzenText>
+                            </RadzenStack>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="2">
+                            <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="height: 100%;">
+                                <RadzenIcon Icon="arrow_forward" Style="font-size: 32px; color: #667eea;" />
+                            </RadzenStack>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="5">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="الى تاريخ" Style="font-weight: 600; color: #495057;" />
+                                <RadzenDatePicker @bind-Value="@toDate" 
+                                                 DateFormat="dd/MM/yyyy"
+                                                 Placeholder="اختر تاريخ النهاية"
+                                                 Style="width: 100%;"
+                                                 ShowCalendarWeek="true"
+                                                 class="custom-datepicker" />
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: #6c757d; margin: 0;">
+                                    تاريخ نهاية الفترة المطلوبة
+                                </RadzenText>
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <!-- معاينة الفترة -->
+                    @if (fromDate.HasValue || toDate.HasValue)
+                    {
+                        <RadzenCard class="date-preview-card">
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenIcon Icon="date_range" Style="color: #667eea; font-size: 24px;" />
+                                    <RadzenText TextStyle="TextStyle.Body1" Style="margin: 0; font-weight: 600;">
+                                        الفترة المحددة:
+                                    </RadzenText>
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Info" 
+                                                Text="@GetDateRangeText()" />
+                                </RadzenStack>
+                                
+                                @if (IsValidDateRange())
+                                {
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="check_circle" Style="color: #28a745; font-size: 20px;" />
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="color: #28a745; margin: 0;">
+                                            @GetDaysCount() يوم
+                                        </RadzenText>
+                                    </RadzenStack>
+                                }
+                                else
+                                {
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="error" Style="color: #dc3545; font-size: 20px;" />
+                                        <RadzenText TextStyle="TextStyle.Body2" Style="color: #dc3545; margin: 0;">
+                                            فترة غير صحيحة
+                                        </RadzenText>
+                                    </RadzenStack>
+                                }
+                            </RadzenStack>
+                        </RadzenCard>
+                    }
+                </RadzenFieldset>
+
+                <!-- مرشح المورد -->
+                <RadzenFieldset Text="تحديد المورد" class="supplier-fieldset">
+                    <RadzenRow Gap="1rem" AlignItems="AlignItems.End">
+                        <RadzenColumn Size="12" SizeMD="8">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="المورد" Style="font-weight: 600; color: #495057;" />
+                                <RadzenDropDown @bind-Value="@selectedSupplier" 
+                                               Data="@suppliers" 
+                                               TextProperty="Name" 
+                                               ValueProperty="Id"
+                                               Placeholder="اختر المورد..."
+                                               AllowClear="true"
+                                               AllowFiltering="true"
+                                               FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                                               Style="width: 100%;"
+                                               class="custom-dropdown" />
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: #6c757d; margin: 0;">
+                                    يمكنك البحث بكتابة اسم المورد
+                                </RadzenText>
+                            </RadzenStack>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="حالة المورد" Style="font-weight: 600; color: #495057;" />
+                                <RadzenDropDown @bind-Value="@supplierStatus" 
+                                               Data="@supplierStatuses" 
+                                               TextProperty="Text" 
+                                               ValueProperty="Value"
+                                               Placeholder="جميع الحالات"
+                                               AllowClear="true"
+                                               Style="width: 100%;"
+                                               class="custom-dropdown" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                    <!-- معلومات المورد المحدد -->
+                    @if (selectedSupplier != null)
+                    {
+                        var supplier = suppliers.FirstOrDefault(s => s.Id == selectedSupplier);
+                        if (supplier != null)
+                        {
+                            <RadzenCard class="supplier-info-card">
+                                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                                    <RadzenIcon Icon="business" Style="font-size: 32px; color: #667eea;" />
+                                    <RadzenStack Gap="0.25rem">
+                                        <RadzenText TextStyle="TextStyle.Body1" Style="font-weight: 600; margin: 0;">
+                                            @supplier.Name
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="color: #666; margin: 0;">
+                                            الرقم: @supplier.Code | الهاتف: @supplier.Phone
+                                        </RadzenText>
+                                    </RadzenStack>
+                                    <RadzenBadge BadgeStyle="@(supplier.IsActive ? BadgeStyle.Success : BadgeStyle.Secondary)" 
+                                                Text="@(supplier.IsActive ? "نشط" : "غير نشط")" />
+                                </RadzenStack>
+                            </RadzenCard>
+                        }
+                    }
+                </RadzenFieldset>
+
+                <!-- مرشحات إضافية -->
+                <RadzenFieldset Text="خيارات إضافية" class="additional-fieldset">
+                    <RadzenRow Gap="1rem">
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="نوع العملية" Style="font-weight: 600; color: #495057;" />
+                                <RadzenDropDown @bind-Value="@operationType" 
+                                               Data="@operationTypes" 
+                                               TextProperty="Text" 
+                                               ValueProperty="Value"
+                                               Placeholder="جميع العمليات"
+                                               AllowClear="true"
+                                               Style="width: 100%;" />
+                            </RadzenStack>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="المبلغ الأدنى" Style="font-weight: 600; color: #495057;" />
+                                <RadzenNumeric @bind-Value="@minAmount" 
+                                              Placeholder="0.00"
+                                              Format="N2"
+                                              Style="width: 100%;" />
+                            </RadzenStack>
+                        </RadzenColumn>
+
+                        <RadzenColumn Size="12" SizeMD="4">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenLabel Text="المبلغ الأعلى" Style="font-weight: 600; color: #495057;" />
+                                <RadzenNumeric @bind-Value="@maxAmount" 
+                                              Placeholder="0.00"
+                                              Format="N2"
+                                              Style="width: 100%;" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenFieldset>
+            </RadzenStack>
+
+            <!-- أزرار الإجراءات -->
+            <RadzenCard class="actions-card">
+                <RadzenStack Gap="1.5rem">
+                    <!-- الأزرار الرئيسية -->
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                        <RadzenButton Text="تنفيذ البحث" 
+                                     Icon="search" 
+                                     ButtonStyle="ButtonStyle.Primary" 
+                                     Size="ButtonSize.Large"
+                                     Style="min-width: 200px;"
+                                     Click="@ExecuteSearch"
+                                     Disabled="@(!IsFormValid())" />
+                        <RadzenButton Text="تصدير النتائج" 
+                                     Icon="file_download" 
+                                     ButtonStyle="ButtonStyle.Success" 
+                                     Size="ButtonSize.Large"
+                                     Style="min-width: 200px;"
+                                     Click="@ExportResults" />
+                    </RadzenStack>
+
+                    <!-- الأزرار الثانوية -->
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="0.5rem">
+                        <RadzenButton Text="معاينة" 
+                                     Icon="preview" 
+                                     ButtonStyle="ButtonStyle.Light" 
+                                     Size="ButtonSize.Medium"
+                                     Click="@PreviewResults" />
+                        <RadzenButton Text="حفظ كقالب" 
+                                     Icon="save_alt" 
+                                     ButtonStyle="ButtonStyle.Secondary" 
+                                     Size="ButtonSize.Medium" />
+                        <RadzenButton Text="مسح الكل" 
+                                     Icon="clear_all" 
+                                     ButtonStyle="ButtonStyle.Light" 
+                                     Size="ButtonSize.Medium"
+                                     Click="@ClearFilters" />
+                    </RadzenStack>
+
+                    <!-- اختصارات لوحة المفاتيح -->
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.Center" Gap="1rem">
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="Enter - تنفيذ" />
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="F5 - تحديث" />
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="Ctrl+E - تصدير" />
+                        <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="Esc - مسح" />
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+
+            <!-- إحصائيات سريعة -->
+            @if (showStats)
+            {
+                <RadzenCard class="stats-card">
+                    <RadzenStack Gap="1rem">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                            <RadzenIcon Icon="analytics" Style="font-size: 32px; color: #667eea;" />
+                            <RadzenText TextStyle="TextStyle.H5" Style="margin: 0; color: #333;">
+                                إحصائيات سريعة
+                            </RadzenText>
+                        </RadzenStack>
+
+                        <RadzenRow Gap="1rem">
+                            <RadzenColumn Size="6" SizeMD="3">
+                                <RadzenCard class="stat-card">
+                                    <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="receipt" Style="color: #667eea; font-size: 32px;" />
+                                        <RadzenText TextStyle="TextStyle.H4" Style="margin: 0; color: #333;">
+                                            @totalRecords
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                            إجمالي السجلات
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="6" SizeMD="3">
+                                <RadzenCard class="stat-card">
+                                    <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="attach_money" Style="color: #28a745; font-size: 32px;" />
+                                        <RadzenText TextStyle="TextStyle.H4" Style="margin: 0; color: #333;">
+                                            @totalAmount.ToString("N0")
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                            إجمالي المبلغ
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="6" SizeMD="3">
+                                <RadzenCard class="stat-card">
+                                    <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="business" Style="color: #ffc107; font-size: 32px;" />
+                                        <RadzenText TextStyle="TextStyle.H4" Style="margin: 0; color: #333;">
+                                            @activeSuppliers
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                            الموردين النشطين
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+
+                            <RadzenColumn Size="6" SizeMD="3">
+                                <RadzenCard class="stat-card">
+                                    <RadzenStack AlignItems="AlignItems.Center" Gap="0.5rem">
+                                        <RadzenIcon Icon="trending_up" Style="color: #dc3545; font-size: 32px;" />
+                                        <RadzenText TextStyle="TextStyle.H4" Style="margin: 0; color: #333;">
+                                            @averageAmount.ToString("N0")
+                                        </RadzenText>
+                                        <RadzenText TextStyle="TextStyle.Caption" Style="margin: 0; color: #666;">
+                                            متوسط المبلغ
+                                        </RadzenText>
+                                    </RadzenStack>
+                                </RadzenCard>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </RadzenCard>
+            }
+        </RadzenStack>
+    </RadzenCard>
+</div>
+
+@code {
+    // متغيرات النموذج
+    private DateTime? fromDate;
+    private DateTime? toDate;
+    private int? selectedSupplier;
+    private string? supplierStatus;
+    private string? operationType;
+    private decimal? minAmount;
+    private decimal? maxAmount;
+
+    // متغيرات الإحصائيات
+    private bool showStats = false;
+    private int totalRecords = 0;
+    private decimal totalAmount = 0;
+    private int activeSuppliers = 0;
+    private decimal averageAmount = 0;
+
+    // بيانات الموردين
+    private List<Supplier> suppliers = new()
+    {
+        new Supplier { Id = 1, Name = "شركة الأهرام للتجارة", Code = "SUP001", Phone = "01234567890", IsActive = true },
+        new Supplier { Id = 2, Name = "مؤسسة النيل للمواد", Code = "SUP002", Phone = "01234567891", IsActive = true },
+        new Supplier { Id = 3, Name = "شركة الدلتا للتوريدات", Code = "SUP003", Phone = "01234567892", IsActive = false },
+        new Supplier { Id = 4, Name = "مجموعة الخليج التجارية", Code = "SUP004", Phone = "01234567893", IsActive = true },
+        new Supplier { Id = 5, Name = "شركة الشرق الأوسط", Code = "SUP005", Phone = "01234567894", IsActive = true }
+    };
+
+    // حالات الموردين
+    private List<DropdownItem> supplierStatuses = new()
+    {
+        new DropdownItem { Text = "نشط", Value = "active" },
+        new DropdownItem { Text = "غير نشط", Value = "inactive" },
+        new DropdownItem { Text = "معلق", Value = "suspended" }
+    };
+
+    // أنواع العمليات
+    private List<DropdownItem> operationTypes = new()
+    {
+        new DropdownItem { Text = "مشتريات", Value = "purchase" },
+        new DropdownItem { Text = "مبيعات", Value = "sales" },
+        new DropdownItem { Text = "مرتجعات", Value = "returns" },
+        new DropdownItem { Text = "تسويات", Value = "adjustments" }
+    };
+
+    protected override void OnInitialized()
+    {
+        // تعيين قيم افتراضية
+        fromDate = DateTime.Now.AddMonths(-1);
+        toDate = DateTime.Now;
+        
+        // تحديث الإحصائيات
+        UpdateStats();
+    }
+
+    private string GetDateRangeText()
+    {
+        if (fromDate.HasValue && toDate.HasValue)
+        {
+            return $"{fromDate.Value:dd/MM/yyyy} - {toDate.Value:dd/MM/yyyy}";
+        }
+        else if (fromDate.HasValue)
+        {
+            return $"من {fromDate.Value:dd/MM/yyyy}";
+        }
+        else if (toDate.HasValue)
+        {
+            return $"حتى {toDate.Value:dd/MM/yyyy}";
+        }
+        return "غير محدد";
+    }
+
+    private bool IsValidDateRange()
+    {
+        return fromDate.HasValue && toDate.HasValue && fromDate.Value <= toDate.Value;
+    }
+
+    private int GetDaysCount()
+    {
+        if (IsValidDateRange())
+        {
+            return (toDate.Value - fromDate.Value).Days + 1;
+        }
+        return 0;
+    }
+
+    private bool IsFormValid()
+    {
+        return (fromDate.HasValue || toDate.HasValue) && 
+               (selectedSupplier.HasValue || !string.IsNullOrEmpty(supplierStatus));
+    }
+
+    private async Task ExecuteSearch()
+    {
+        // تنفيذ البحث
+        showStats = true;
+        UpdateStats();
+        StateHasChanged();
+        
+        // محاكاة تحميل البيانات
+        await Task.Delay(1000);
+    }
+
+    private async Task ExportResults()
+    {
+        // تصدير النتائج
+        await Task.Delay(500);
+    }
+
+    private async Task PreviewResults()
+    {
+        // معاينة النتائج
+        await Task.Delay(500);
+    }
+
+    private void ClearFilters()
+    {
+        fromDate = null;
+        toDate = null;
+        selectedSupplier = null;
+        supplierStatus = null;
+        operationType = null;
+        minAmount = null;
+        maxAmount = null;
+        showStats = false;
+        StateHasChanged();
+    }
+
+    private void UpdateStats()
+    {
+        // محاكاة إحصائيات
+        var random = new Random();
+        totalRecords = random.Next(100, 1000);
+        totalAmount = random.Next(10000, 100000);
+        activeSuppliers = suppliers.Count(s => s.IsActive);
+        averageAmount = totalRecords > 0 ? totalAmount / totalRecords : 0;
+    }
+
+    // فئات البيانات
+    public class Supplier
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Code { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public bool IsActive { get; set; }
+    }
+
+    public class DropdownItem
+    {
+        public string Text { get; set; } = "";
+        public string Value { get; set; } = "";
+    }
+}
+
+<style>
+    .filter-form-container {
+        padding: 20px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        font-family: 'Cairo', 'Segoe UI', sans-serif;
+        direction: rtl;
+    }
+
+    /* رأس الصفحة */
+    .header-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin-bottom: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        border: none;
+    }
+
+    /* البطاقة الرئيسية */
+    .main-form-card {
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        border: none;
+        background: white;
+    }
+
+    /* مجموعات الحقول */
+    :deep(.rz-fieldset) {
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        background: #f8f9fa;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-fieldset:hover) {
+        border-color: #667eea;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+    }
+
+    :deep(.rz-fieldset-legend) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-weight: 600;
+        border: none;
+    }
+
+    /* بطاقة معاينة التاريخ */
+    .date-preview-card {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border: 2px dashed #2196f3;
+        border-radius: 12px;
+        margin-top: 1rem;
+    }
+
+    /* بطاقة معلومات المورد */
+    .supplier-info-card {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        border-left: 4px solid #9c27b0;
+        border-radius: 12px;
+        margin-top: 1rem;
+        border-top: none;
+        border-right: none;
+        border-bottom: none;
+    }
+
+    /* بطاقة الإجراءات */
+    .actions-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border: none;
+        margin-top: 2rem;
+    }
+
+    /* بطاقة الإحصائيات */
+    .stats-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 20px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border: none;
+        margin-top: 2rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        border: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    /* تخصيص مكونات Radzen */
+    :deep(.rz-button.rz-primary) {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+
+    :deep(.rz-button.rz-primary:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    :deep(.rz-button.rz-success) {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+
+    :deep(.rz-button.rz-success:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+    }
+
+    :deep(.rz-button.rz-light) {
+        background: #f8f9fa;
+        color: #495057;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+
+    :deep(.rz-button.rz-light:hover) {
+        background: #e9ecef;
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    :deep(.rz-button.rz-secondary) {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        border: none;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        font-weight: 600;
+    }
+
+    :deep(.rz-button.rz-secondary:hover) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.3);
+    }
+
+    /* تخصيص حقول الإدخال */
+    :deep(.rz-textbox),
+    :deep(.rz-numeric),
+    :deep(.rz-datepicker),
+    :deep(.rz-dropdown) {
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+        font-size: 14px;
+    }
+
+    :deep(.rz-textbox:focus),
+    :deep(.rz-numeric:focus),
+    :deep(.rz-datepicker:focus),
+    :deep(.rz-dropdown:focus) {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+
+    /* تخصيص القوائم المنسدلة */
+    :deep(.rz-dropdown-panel) {
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        border: none;
+    }
+
+    /* تخصيص التقويم */
+    :deep(.rz-datepicker-popup) {
+        border-radius: 15px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        border: none;
+    }
+
+    /* تخصيص الشارات */
+    :deep(.rz-badge) {
+        border-radius: 20px;
+        padding: 6px 12px;
+        font-weight: 600;
+        font-size: 12px;
+    }
+
+    /* تحسينات الاستجابة */
+    @@media (max-width: 768px) {
+        .filter-form-container {
+            padding: 10px;
+        }
+
+        :deep(.rz-button) {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .stat-card {
+            margin-bottom: 1rem;
+        }
+    }
+
+    /* تأثيرات الحركة */
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .main-form-card {
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    .stats-card {
+        animation: fadeInUp 0.8s ease-out;
+    }
+
+    /* تحسينات إضافية */
+    :deep(.rz-card) {
+        transition: all 0.3s ease;
+    }
+
+    :deep(.rz-icon) {
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover :deep(.rz-icon) {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* تخصيص الفواصل */
+    :deep(.rz-separator) {
+        background: linear-gradient(90deg, transparent, #667eea, transparent);
+        height: 2px;
+        border: none;
+    }
+
+    /* تخصيص التسميات */
+    :deep(.rz-label) {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+
+    /* تأثيرات التركيز */
+    :deep(.rz-button:focus) {
+        outline: 3px solid rgba(102, 126, 234, 0.3);
+        outline-offset: 2px;
+    }
+
+    /* تحسين الألوان للوضع المظلم */
+    @@media (prefers-color-scheme: dark) {
+        .filter-form-container {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+        }
+
+        .main-form-card {
+            background: #2d2d2d;
+            color: white;
+        }
+    }
+</style>

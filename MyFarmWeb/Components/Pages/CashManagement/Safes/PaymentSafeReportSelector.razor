@@ -1,0 +1,247 @@
+﻿@page "/payment_safe_report_selector"
+@rendermode InteractiveServer
+@layout Layout.MainLayout
+@inject IUnitOfWork unitofwork
+@inject Service service
+@inject MyFarmWeb.Data.MyFarmContext db
+@inject NavigationManager nv
+@inject LayoutState layoutState
+<PageTitle> تقرير المدفوعات النقدية</PageTitle>
+<RadzenCard class="rz-my-6">
+    <RadzenStack Gap="20px">
+
+        <RadzenRow>
+            <RadzenLabel Component="paymentid">رقم المدفوع</RadzenLabel>
+            <RadzenNumeric TValue="int" Min="0" @bind-Value="PaymentId" Style="margin-right:20px;" TextAlign="Radzen.TextAlign.Center" Name="paymentid"></RadzenNumeric>
+
+        </RadzenRow>
+
+        <RadzenRow>
+
+
+            <RadzenLabel Component="from">من تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=from Style="margin-right:40px;" Name="from" />
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="to">الى تاريخ</RadzenLabel>
+            <RadzenDatePicker TValue="DateTime" DateFormat="yyyy-MM-dd" @bind-Value=to Style="margin-right:40px;" Name="to" />
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="DropDowncustomer">العميل</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridcustomer ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=CustomersId Data=@Customers AllowClear="true"
+                                        TextProperty="@nameof(Customer.CustomerName)" ValueProperty="@nameof(Customer.CustomerId)" AllowFiltering="true" Name="DropDowncustomer">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select all" } })" Disabled="@(!gridcustomer.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => CustomersId = args ? gridcustomer.View.Cast<Customer>().Select(c => c.CustomerId) : CustomersId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select item" } })" TriState="false" Value="@(CustomersId != null && CustomersId.Contains(((Customer)data).CustomerId))"
+                                                TValue="bool" Change=@(args => gridcustomer.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Customer.CustomerId)" Title="كود العميل" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Customer.CustomerName)" Title="اسم العميل" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+
+        <RadzenRow>
+            <RadzenLabel Component="DropDownitem">المورد</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=griditem FocusFilterOnPopup="true" ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=VendorsId Data=@Vendors AllowFilteringByAllStringColumns="true"
+                                        TextProperty="@nameof(Vendor.VendorName)" ValueProperty="@nameof(Vendor.VendorId)" AllowFiltering="true" Name="DropDownitem">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select all" } })" Disabled="@(!griditem.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => VendorsId = args ? griditem.View.Cast<Vendor>().Select(c => c.VendorId) : VendorsId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select item" } })" TriState="false" Value="@(VendorsId != null && VendorsId.Contains(((Vendor)data).VendorId))"
+                                                TValue="bool" Change=@(args => griditem.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Vendor.VendorId)" Title="كود المورد" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Vendor.VendorName)" Title="اسم المورد" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+        <RadzenRow>
+            <RadzenLabel Component="DropDownDatasafe">الخزنه</RadzenLabel>
+            <RadzenStack Orientation="Orientation.Vertical" Style="width:50%;margin-right:40px;">
+                <RadzenDropDownDataGrid Multiple="true" Chips="true" @ref=gridstore FocusFilterOnPopup="true" ShowSearch="false" SearchTextPlaceholder="بحث" Style="width:100%;"
+                                        @bind-Value=SafsId Data=@Safes AllowFilteringByAllStringColumns="true"
+                                        TextProperty="@nameof(Safe.SafeName)" ValueProperty="@nameof(Safe.SafeId)" AllowFiltering="true" Name="DropDownDatasafe">
+                    <Columns>
+                        <RadzenDropDownDataGridColumn Width="60px" Sortable="false">
+                            <HeaderTemplate>
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select all" } })" Disabled="@(!gridstore.AllowSelectAll)" TriState="false" TValue="bool"
+                                                Change="@(args => SafsId = args ? gridstore.View.Cast<Safe>().Select(c => c.SafeId) : SafsId = Enumerable.Empty<int>())" />
+                            </HeaderTemplate>
+                            <Template Context="data">
+                                <RadzenCheckBox InputAttributes="@(new Dictionary<string, object>() { { "aria-label", "select item" } })" TriState="false" Value="@(SafsId != null && SafsId.Contains(((Safe)data).SafeId))"
+                                                TValue="bool" Change=@(args => gridstore.SelectItem(data)) @onclick:stopPropagation />
+                            </Template>
+                        </RadzenDropDownDataGridColumn>
+                        <RadzenDropDownDataGridColumn Property="@nameof(Safe.SafeId)" Title="كود الخزنه" />
+                        <RadzenDropDownDataGridColumn Property="@nameof(Safe.SafeName)" Title="اسم الخزنه" Width="100%" />
+                    </Columns>
+                </RadzenDropDownDataGrid>
+            </RadzenStack>
+
+        </RadzenRow>
+
+      
+    </RadzenStack>
+    <RadzenButton Text="تنفيذ" Icon="save" Click="search" Style="margin-right:100px;margin-top:20px;"></RadzenButton>
+    <RadzenButton ButtonStyle="ButtonStyle.Success" Icon="add_circle" Text="اضافة مقبوض" Click="@add" />
+</RadzenCard>
+
+
+
+@code {
+    public int PaymentId { get; set; }
+    RadzenDropDownDataGrid<IEnumerable<int>> gridcustomer;
+    RadzenDropDownDataGrid<IEnumerable<int>> griditem;
+    RadzenDropDownDataGrid<IEnumerable<int>> gridstore;
+    RadzenDropDownDataGrid<IEnumerable<int>> gridfarm;
+    public int CustomerId { get; set; }
+    IEnumerable<Customer> Customers;
+    IEnumerable<Vendor> Vendors;
+    IEnumerable<Safe> Safes;
+    IEnumerable<Farm> Farms;
+    IEnumerable<int> CustomersId = new int[] { };
+    IEnumerable<int> VendorsId = new int[] { };
+    IEnumerable<int> SafsId = new int[] { };
+    IEnumerable<int> FarmsId = new int[] { };
+
+    public string customeridstring { get; set; } = "";
+    public string vendoridstring { get; set; } = "";
+    public string safeidstring { get; set; } = "";
+    public string farmidstring { get; set; } = "";
+    public DateTime from { get; set; }
+    public DateTime to { get; set; }
+    public string UserId { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!await service.IsAuth())
+        {
+            nv.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        Customers = await unitofwork.Customers.GetAllAsync(v => v.UserId == UserId);
+        Vendors = await unitofwork.Vendors.GetAllAsync(i => i.UserId == UserId);
+        Safes = await unitofwork.Safe.GetAllAsync(i => i.UserId == UserId);
+        Farms = await unitofwork.Farms.GetAllAsync(i => i.UserId == UserId);
+
+        var menu = await unitofwork.MenuItems.GetAllAsync(m => m.ParentId == "6");
+        if (menu != null)
+        {
+            layoutState.SetMenuItems(menu.ToList());
+        }
+    }
+    void search()
+
+    {
+
+
+        if (CustomersId != null && CustomersId.Any())
+        {
+            foreach (var item in CustomersId)
+            {
+                if (string.IsNullOrEmpty(customeridstring))
+                {
+                    customeridstring = item.ToString();
+
+                }
+                else
+                {
+                    customeridstring = customeridstring + "," + item.ToString();
+                }
+
+            }
+        }
+        if (VendorsId != null && VendorsId.Any())
+        {
+            foreach (var item in VendorsId)
+            {
+                if (string.IsNullOrEmpty(vendoridstring))
+                {
+                    vendoridstring = item.ToString();
+
+                }
+                else
+                {
+                    vendoridstring = vendoridstring + "," + item.ToString();
+                }
+
+            }
+        }
+        if (SafsId != null && SafsId.Any())
+        {
+            foreach (var item in SafsId)
+            {
+                if (string.IsNullOrEmpty(safeidstring))
+                {
+                    safeidstring = item.ToString();
+
+                }
+                else
+                {
+                    safeidstring = safeidstring + "," + item.ToString();
+                }
+
+            }
+        }
+
+        if (FarmsId != null && FarmsId.Any())
+        {
+            foreach (var item in FarmsId)
+            {
+                if (string.IsNullOrEmpty(farmidstring))
+                {
+                    farmidstring = item.ToString();
+
+                }
+                else
+                {
+                    farmidstring = farmidstring + "," + item.ToString();
+                }
+
+            }
+        }
+        // Default each parameter to "null" if it's empty or null
+        customeridstring = string.IsNullOrEmpty(customeridstring) ? "null" : customeridstring;
+        vendoridstring = string.IsNullOrEmpty(vendoridstring) ? "null" : vendoridstring;
+        safeidstring = string.IsNullOrEmpty(safeidstring) ? "null" : safeidstring;
+        farmidstring = string.IsNullOrEmpty(farmidstring) ? "null" : farmidstring;
+        var fromDate = from.ToString("yyyy-MM-dd") ?? "null";
+        var toDate = to.ToString("yyyy-MM-dd") ?? "null";
+
+        // Navigate to the constructed URL
+        string url = $"payment-safe-report/{customeridstring}/{vendoridstring}/{safeidstring}/{farmidstring}/{fromDate}/{toDate}/{PaymentId}";
+        nv.NavigateTo(url);
+    }
+
+
+    void add()
+    {
+        nv.NavigateTo("/add-payment-safe");
+    }
+}
+

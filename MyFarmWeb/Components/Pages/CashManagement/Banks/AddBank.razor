@@ -1,0 +1,131 @@
+﻿@page "/add-bank"
+@page "/add-bank/{Id:int}"
+@using Radzen.Blazor.Rendering
+@inject IUnitOfWork unitofwork
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject Service service
+@inject NotificationService NotificationService
+@inject NavigationManager nav
+@rendermode InteractiveServer
+@inject Bank bank
+
+<title>اضافة بنك</title>
+<EditForm Model="bank" FormName="add-bank" class="form-control p-5 m-2 ">
+
+
+    @if (Errors.Count > 0)
+    {
+        <RadzenAlert @ref=erroralert AllowClose="false" AlertStyle="AlertStyle.Danger" Size="AlertSize.Small" class="mb-5">
+            <ul>
+                @foreach (var item in Errors)
+                {
+                    <li>@item.Value</li>
+                }
+            </ul>
+        </RadzenAlert>
+    }
+
+
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="اسم البنك" Component="bankname" Style="width: 100%; max-width: 200px;" />
+        <RadzenTextBox @bind-Value=bank.BankName Style="width: 100%; max-width: 400px;" Name="bankname" />
+    </RadzenRow>
+    <RadzenRow class="mb-4">
+        <RadzenLabel Text="رقم الحساب" Component="banknumber" Style="width: 100%; max-width: 200px;" />
+        <RadzenTextBox @bind-Value=bank.BankNumber Style="width: 100%; max-width: 400px;" Name="banknumber" />
+    </RadzenRow>
+
+    <RadzenRow>
+
+
+        <RadzenButton @ref="newbtn" ButtonType="ButtonType.Button" Shade="Shade.Darker" Text="جديد" Icon="add" ButtonStyle="ButtonStyle.Info" Click="newbank" />
+        <RadzenButton @ref="addbtn" ButtonType="ButtonType.Submit" Shade="Shade.Darker" Text="@(Id > 0 ? "تعديل" : "حفظ")" Icon="save" ButtonStyle="ButtonStyle.Info" Click="addbank" />
+
+    </RadzenRow>
+
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    RadzenButton newbtn;
+    RadzenButton Cancelbtn;
+    [Parameter]
+
+    public RadzenButton addbtn { get; set; }
+    Dictionary<string, string> Errors = new();
+    RadzenAlert erroralert;
+    public string UserId { get; set; }
+    public bool IsValid { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (!await service.IsAuth())
+        {
+            nav.NavigateTo("/Account/Login");
+            return;
+        }
+        UserId = await service.GetUserId();
+        if (Id > 0)
+        {
+            bank = unitofwork.Bank.SelectOne(i => i.BankId == Id && i.UserId == UserId);
+        }
+    }
+
+    void newbank()
+    {
+        bank = new();
+        Errors.Clear();
+        Id = 0;
+        addbtn.Text = "حفظ";
+    }
+    async void addbank()
+    {
+        try
+        {
+            if (!validation())
+            {
+                return;
+            }
+            if (Id > 0)
+            {
+                unitofwork.Bank.UpdateOne(bank);
+            }
+            else
+            {
+                bank.UserId = UserId;
+                unitofwork.Bank.AddOne(bank);
+                Id = bank.BankId;
+                addbtn.Text = "تعديل";
+            }
+
+
+            NotificationService.Notify(NotificationSeverity.Success, "تم الحفظ بنجاح", "", 3000);
+        }
+        catch (Exception ex)
+        {
+
+            NotificationService.Notify(NotificationSeverity.Error, "خطأ", ex.Message, 3000);
+        }
+
+    }
+    bool validation()
+    {
+        Errors.Clear();
+        if (string.IsNullOrEmpty(bank.BankName))
+        {
+            Errors.Add("bankname", "يجب ادخال اسم البنك");
+
+        }
+        if (Errors.Count > 0)
+        {
+            IsValid = false;
+        }
+        else
+        {
+            IsValid = true;
+        }
+        return IsValid;
+    }
+}
